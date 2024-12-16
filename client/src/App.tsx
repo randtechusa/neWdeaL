@@ -2,6 +2,7 @@ import { Switch, Route } from "wouter";
 import { Home } from "@/pages/Home";
 import { ChartOfAccounts } from "@/pages/ChartOfAccounts";
 import { Analysis } from "@/pages/Analysis";
+import { AdminDashboard } from "@/pages/admin/Dashboard";
 import { 
   LayoutDashboard, 
   FileSpreadsheet, 
@@ -119,6 +120,7 @@ function App() {
           <Route path="/" component={Home} />
           <Route path="/chart-of-accounts" component={ChartOfAccounts} />
           <Route path="/analysis" component={Analysis} />
+          <Route path="/admin" component={AdminDashboard} />
           <Route>
             <div className="flex h-[calc(100vh-10rem)] items-center justify-center">
               <div className="text-center">

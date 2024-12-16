@@ -8,6 +8,7 @@ import {
   patterns,
   historicalMatches,
   settings,
+  users,
 } from "@db/schema";
 import multer from "multer";
 import { parse as parseCsv } from "csv-parse/sync";
@@ -177,6 +178,34 @@ export function registerRoutes(app: Express): Server {
 
       const predictions = await generatePredictions(transaction);
       res.json(predictions);
+    } catch (error) {
+      res.status(500).json({ message: error.message });
+    }
+  });
+
+  // Admin routes
+  app.get("/api/admin/users", async (req, res) => {
+    try {
+      const result = await db.query.users.findMany({
+        orderBy: desc(users.createdAt),
+      });
+      res.json(result);
+    } catch (error) {
+      res.status(500).json({ message: error.message });
+    }
+  });
+
+  app.post("/api/admin/users", async (req, res) => {
+    try {
+      const [user] = await db.insert(users)
+        .values({
+          userId: req.body.userId,
+          email: req.body.email,
+          password: req.body.password, // Note: Should hash password in production
+          role: req.body.role || "user",
+        })
+        .returning();
+      res.json(user);
     } catch (error) {
       res.status(500).json({ message: error.message });
     }
