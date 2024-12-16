@@ -3,7 +3,7 @@ import { IVerifyOptions, Strategy as LocalStrategy } from "passport-local";
 import { type Express } from "express";
 import session from "express-session";
 import createMemoryStore from "memorystore";
-import * as bcrypt from "bcryptjs";
+import bcryptjs from "bcryptjs";
 import { users, type User } from "@db/schema";
 import { db } from "@db";
 import { eq } from "drizzle-orm";
@@ -66,7 +66,7 @@ export function setupAuth(app: Express) {
             return done(null, false, { message: "Account is deactivated." });
           }
           
-          const isMatch = await bcrypt.compare(password, user.password);
+          const isMatch = await bcryptjs.compare(password, user.password);
           if (!isMatch) {
             return done(null, false, { message: "Incorrect password." });
           }
@@ -149,7 +149,7 @@ async function createAdminUser() {
       .limit(1);
 
     if (!existingAdmin) {
-      const hashedPassword = await bcrypt.hash('admin@123', 10);
+      const hashedPassword = await bcryptjs.hash('admin@123', 10);
       const [newAdmin] = await db
         .insert(users)
         .values({
@@ -166,7 +166,6 @@ async function createAdminUser() {
     }
   } catch (error) {
     console.error('Error creating admin user:', error);
-    // Log the full error for debugging
     console.error('Error details:', error);
   }
 }
