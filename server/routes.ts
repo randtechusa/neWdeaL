@@ -160,11 +160,16 @@ export function registerRoutes(app: Express): Server {
   // Stats routes
   app.get("/api/stats", async (_req, res) => {
     try {
-      const [totalTransactions] = await db
+      // Ensure database connection
+      if (!db) {
+        throw new Error("Database connection not established");
+      }
+      const totalTransactions = await db
         .select({ count: db.fn.count() })
-        .from(transactions);
+        .from(transactions)
+        .then(rows => rows[0] || { count: 0 });
 
-      const [analyzedTransactions] = await db
+      const analyzedTransactions = await db
         .select({ count: db.fn.count() })
         .from(transactions)
         .where(
@@ -172,10 +177,11 @@ export function registerRoutes(app: Express): Server {
             transactions.accountId.isNotNull(),
             transactions.explanation.isNotNull()
           )
-        );
+        )
+        .then(rows => rows[0] || { count: 0 });
 
       // Calculate prediction accuracy
-      const [correctPredictions] = await db
+      const correctPredictions = await db
         .select({ count: db.fn.count() })
         .from(transactions)
         .where(
@@ -183,7 +189,8 @@ export function registerRoutes(app: Express): Server {
             transactions.predictedBy.isNotNull(),
             transactions.confidence.gte(0.8)
           )
-        );
+        )
+        .then(rows => rows[0] || { count: 0 });
 
       const predictionAccuracy =
         totalTransactions.count > 0
