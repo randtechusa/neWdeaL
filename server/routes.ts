@@ -1,5 +1,6 @@
 import express, { type Express } from "express";
 import { createServer, type Server } from "http";
+import { setupAuth } from "./auth";
 import { db } from "@db";
 import { eq, desc, and, or, like } from "drizzle-orm";
 import {
@@ -26,6 +27,8 @@ import {
 const upload = multer({ storage: multer.memoryStorage() });
 
 export function registerRoutes(app: Express): Server {
+  // Set up authentication first
+  setupAuth(app);
   // Master Chart of Accounts routes (Admin only)
   app.get("/api/admin/master-accounts", async (_req, res) => {
     try {

@@ -6,6 +6,8 @@ import { AdminDashboard } from "@/pages/admin/Dashboard";
 import { ActiveSubscribers } from "@/pages/admin/ActiveSubscribers";
 import { DeactivatedSubscribers } from "@/pages/admin/DeactivatedSubscribers";
 import { AdminSettings } from "@/pages/admin/AdminSettings";
+import AuthPage from "@/pages/AuthPage";
+import { useUser } from "@/hooks/use-user";
 import {
   LayoutDashboard,
   FileSpreadsheet,
@@ -20,7 +22,8 @@ import {
   BarChart2,
   TrendingUp,
   BadgeDollarSign,
-  Users, // Import Users icon
+  Users,
+  Loader2
 } from "lucide-react";
 import {
   DropdownMenu,
@@ -34,7 +37,7 @@ const AdminChartOfAccounts = () => <div>Chart of Accounts (Admin)</div>;
 
 
 function App() {
-  const navItems = [
+  const userNavItems = [
     {
       href: "/",
       label: "Dashboard",
@@ -68,17 +71,54 @@ function App() {
       icon: <FileSpreadsheet className="h-4 w-4" />
     },
     {
-      label: "Admin",
-      icon: <Settings className="h-4 w-4" />,
-      dropdown: [
-        { href: "/admin/dashboard", label: "Dashboard", icon: <LayoutDashboard className="h-4 w-4" /> },
-        { href: "/admin/active-subscribers", label: "Active Subscribers", icon: <Users className="h-4 w-4" /> },
-        { href: "/admin/deactivated-subscribers", label: "DeActivated Subscribers", icon: <Users className="h-4 w-4" /> },
-        { href: "/admin/chart-of-accounts", label: "Charts of Accounts", icon: <FileSpreadsheet className="h-4 w-4" /> },
-        { href: "/admin/settings", label: "Admin Settings", icon: <Settings className="h-4 w-4" /> },
-      ]
-    },
+      href: "/settings",
+      label: "Company Settings",
+      icon: <Settings className="h-4 w-4" />
+    }
   ];
+
+  const adminNavItems = [
+    {
+      href: "/admin/dashboard",
+      label: "Dashboard",
+      icon: <LayoutDashboard className="h-4 w-4" />
+    },
+    {
+      href: "/admin/active-subscribers",
+      label: "Active Subscribers",
+      icon: <Users className="h-4 w-4" />
+    },
+    {
+      href: "/admin/deactivated-subscribers",
+      label: "Deactivated Subscribers",
+      icon: <Users className="h-4 w-4" />
+    },
+    {
+      href: "/admin/chart-of-accounts",
+      label: "Charts of Accounts",
+      icon: <FileSpreadsheet className="h-4 w-4" />
+    },
+    {
+      href: "/admin/settings",
+      label: "Admin Settings",
+      icon: <Settings className="h-4 w-4" />
+    }
+  ];
+
+  const { user, isLoading } = useUser();
+  const navItems = user?.role === 'admin' ? adminNavItems : userNavItems;
+
+  if (isLoading) {
+    return (
+      <div className="flex items-center justify-center min-h-screen">
+        <Loader2 className="h-8 w-8 animate-spin text-border" />
+      </div>
+    );
+  }
+
+  if (!user) {
+    return <AuthPage />;
+  }
 
   return (
     <div className="min-h-screen bg-background">
