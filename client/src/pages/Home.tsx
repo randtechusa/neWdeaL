@@ -30,8 +30,24 @@ interface FinancialMetrics {
   returnOnAssets: number;
 }
 
+interface Stats {
+  totalTransactions: number;
+  analyzedTransactions: number;
+  predictionAccuracy: number;
+  monthlyVolume: Array<{
+    month: string;
+    count: number;
+  }>;
+}
+
+interface ForecastData {
+  month: string;
+  projected: number;
+  actual: number;
+}
+
 export function Home() {
-  const { data: stats } = useQuery({
+  const { data: stats } = useQuery<Stats>({
     queryKey: ["/api/stats"],
   });
 
@@ -39,7 +55,7 @@ export function Home() {
     queryKey: ["/api/financial-metrics"],
   });
 
-  const { data: forecast } = useQuery({
+  const { data: forecast } = useQuery<ForecastData[]>({
     queryKey: ["/api/expense-forecast"],
   });
 

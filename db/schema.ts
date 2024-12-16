@@ -2,6 +2,17 @@ import { pgTable, text, serial, integer, timestamp, decimal, boolean, jsonb } fr
 import { createInsertSchema, createSelectSchema } from "drizzle-zod";
 import { relations } from "drizzle-orm";
 
+// Users and authentication
+export const users = pgTable("users", {
+  id: serial("id").primaryKey(),
+  userId: text("user_id").notNull().unique(),
+  email: text("email").notNull().unique(),
+  password: text("password").notNull(),
+  role: text("role").notNull().default("user"),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
 // Core tables
 export const accounts = pgTable("accounts", {
   id: serial("id").primaryKey(),
@@ -93,9 +104,15 @@ export const insertPatternSchema = createInsertSchema(patterns);
 export const selectPatternSchema = createSelectSchema(patterns);
 
 // Types
+export type User = typeof users.$inferSelect;
+export type InsertUser = typeof users.$inferInsert;
 export type Account = typeof accounts.$inferSelect;
 export type InsertAccount = typeof accounts.$inferInsert;
 export type Transaction = typeof transactions.$inferSelect;
 export type InsertTransaction = typeof transactions.$inferInsert;
 export type Pattern = typeof patterns.$inferSelect;
 export type InsertPattern = typeof patterns.$inferInsert;
+
+// User schemas
+export const insertUserSchema = createInsertSchema(users);
+export const selectUserSchema = createSelectSchema(users);

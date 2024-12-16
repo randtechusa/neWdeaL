@@ -160,62 +160,45 @@ export function registerRoutes(app: Express): Server {
   // Stats routes
   app.get("/api/stats", async (_req, res) => {
     try {
-      // Ensure database connection
-      if (!db) {
-        throw new Error("Database connection not established");
-      }
-      const totalTransactions = await db
-        .select({ count: db.fn.count() })
-        .from(transactions)
-        .then(rows => rows[0] || { count: 0 });
+      const totalTransactions = await db.query.transactions.findMany();
+      const analyzedTransactions = await db.query.transactions.findMany({
+        where: and(
+          transactions.accountId.isNotNull(),
+          transactions.explanation.isNotNull()
+        ),
+      });
 
-      const analyzedTransactions = await db
-        .select({ count: db.fn.count() })
-        .from(transactions)
-        .where(
-          and(
-            transactions.accountId.isNotNull(),
-            transactions.explanation.isNotNull()
-          )
-        )
-        .then(rows => rows[0] || { count: 0 });
-
-      // Calculate prediction accuracy
-      const correctPredictions = await db
-        .select({ count: db.fn.count() })
-        .from(transactions)
-        .where(
-          and(
-            transactions.predictedBy.isNotNull(),
-            transactions.confidence.gte(0.8)
-          )
-        )
-        .then(rows => rows[0] || { count: 0 });
+      const correctPredictions = await db.query.transactions.findMany({
+        where: and(
+          transactions.predictedBy.isNotNull(),
+          transactions.confidence.gte("0.8")
+        ),
+      });
 
       const predictionAccuracy =
-        totalTransactions.count > 0
-          ? (Number(correctPredictions.count) / Number(totalTransactions.count)) *
-            100
+        totalTransactions.length > 0
+          ? (correctPredictions.length / totalTransactions.length) * 100
           : 0;
 
-      // Get monthly transaction volume
-      const monthlyVolume = await db
-        .select({
-          month: db.sql`date_trunc('month', ${transactions.date})::text`,
-          count: db.fn.count(),
-        })
-        .from(transactions)
-        .groupBy(db.sql`date_trunc('month', ${transactions.date})`)
-        .orderBy(db.sql`date_trunc('month', ${transactions.date})`);
+      // Get monthly transaction volume using raw SQL for date functions
+      const monthlyVolume = await db.execute(
+        `SELECT 
+          date_trunc('month', date)::text as month,
+          COUNT(*) as count
+        FROM transactions
+        GROUP BY date_trunc('month', date)
+        ORDER BY date_trunc('month', date)`
+      );
 
       res.json({
-        totalTransactions: Number(totalTransactions.count),
-        analyzedTransactions: Number(analyzedTransactions.count),
+        totalTransactions: totalTransactions.length,
+        analyzedTransactions: analyzedTransactions.length,
         predictionAccuracy: Math.round(predictionAccuracy),
-        monthlyVolume,
+        monthlyVolume: monthlyVolume.rows,
       });
-    } catch (error) {
-      res.status(500).json({ message: error.message });
+    } catch (error: any) {
+      console.error("Stats error:", error);
+      res.status(500).json({ message: error.message || "Internal server error" });
     }
   });
 
