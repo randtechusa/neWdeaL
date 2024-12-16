@@ -33,7 +33,7 @@ export function registerRoutes(app: Express): Server {
   setupAuth(app);
 
   // Master Chart of Accounts routes (Admin only)
-  app.get("/api/admin/master-accounts", requireAuth, async (_req, res) => {
+  app.get("/api/admin/master-accounts", requireAdmin, async (_req, res) => {
     try {
       const result = await getMasterAccountHierarchy();
       res.json(result);
@@ -42,7 +42,7 @@ export function registerRoutes(app: Express): Server {
     }
   });
 
-  app.post("/api/admin/master-accounts", async (req, res) => {
+  app.post("/api/admin/master-accounts", requireAdmin, async (req, res) => {
     try {
       const account = await createMasterAccount(req.body);
       res.json(account);
@@ -52,12 +52,12 @@ export function registerRoutes(app: Express): Server {
   });
 
   // User Chart of Accounts routes
-  app.get("/api/accounts", async (req, res) => {
+  app.get("/api/accounts", requireAuth, async (req, res) => {
     try {
-      if (!req.session?.userId) {
-        throw new Error("Not authenticated");
+      if (!req.user?.id) {
+        return res.status(401).json({ message: "Not authenticated" });
       }
-      const result = await getUserAccountHierarchy(req.session.userId);
+      const result = await getUserAccountHierarchy(req.user.id);
       res.json(result);
     } catch (error: any) {
       res.status(500).json({ message: error.message });
