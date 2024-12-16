@@ -1,4 +1,4 @@
-import * as XLSX from "xlsx";
+import { read as readXLSX, utils as xlsxUtils } from "xlsx";
 import type { WorkBook, WorkSheet } from "xlsx";
 import { db } from "@db";
 import { masterAccounts, type InsertMasterAccount, type MasterAccount } from "@db/schema";
@@ -40,13 +40,13 @@ function chunks<T>(array: T[], size: number): T[][] {
 
 export function analyzeExcelSheet(filePath: string, sheetName?: string): SheetAnalysis {
   try {
-    const workbook: WorkBook = XLSX.readFile(filePath);
+    const workbook: WorkBook = readXLSX(filePath);
     const sheet: WorkSheet = sheetName 
       ? workbook.Sheets[sheetName]
       : workbook.Sheets[workbook.SheetNames[0]];
     
     // Convert to JSON with header mapping
-    const jsonData = XLSX.utils.sheet_to_json(sheet) as Record<string, any>[];
+    const jsonData = xlsxUtils.sheet_to_json(sheet) as Record<string, any>[];
     
     // Analyze structure
     const analysis: SheetAnalysis = {
@@ -93,9 +93,9 @@ export async function importChartOfAccounts(filePath: string): Promise<void> {
     const analysis = analyzeExcelSheet(filePath);
     console.log('Analyzing Chart of Accounts structure:', analysis);
 
-    const workbook = XLSX.readFile(filePath);
+    const workbook = readXLSX(filePath);
     const sheet = workbook.Sheets[workbook.SheetNames[0]];
-    const data = XLSX.utils.sheet_to_json(sheet) as Record<string, any>[];
+    const data = xlsxUtils.sheet_to_json(sheet) as Record<string, any>[];
 
     // Detect column mappings based on common variations
     const columnMap = {
