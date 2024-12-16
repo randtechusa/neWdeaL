@@ -177,7 +177,7 @@ function App() {
           <Route path="/admin/dashboard" component={AdminDashboard} />
           <Route path="/admin/active-subscribers" component={ActiveSubscribers} />
           <Route path="/admin/deactivated-subscribers" component={DeactivatedSubscribers} />
-          <Route path="/admin/chart-of-accounts" component={AdminChartOfAccounts} />
+          <Route path="/admin/chart-of-accounts" component={ChartOfAccounts} />
           <Route path="/admin/settings" component={AdminSettings} />
           <Route>
             <div className="flex h-[calc(100vh-10rem)] items-center justify-center">
