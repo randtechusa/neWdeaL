@@ -169,9 +169,9 @@ export async function importBankStatement(filePath: string): Promise<any[]> {
     const analysis = analyzeExcelSheet(filePath);
     console.log('Analyzing Bank Statement structure:', analysis);
 
-    const workbook = XLSX.readFile(filePath);
+    const workbook = readXLSX(filePath);
     const sheet = workbook.Sheets[workbook.SheetNames[0]];
-    const data = XLSX.utils.sheet_to_json(sheet);
+    const data = xlsxUtils.sheet_to_json(sheet);
 
     // Detect column mappings based on common variations
     const columnMap = {
@@ -235,9 +235,9 @@ export async function importTrialBalance(filePath: string): Promise<any[]> {
     const analysis = analyzeExcelSheet(filePath);
     console.log('Analyzing Trial Balance structure:', analysis);
 
-    const workbook = XLSX.readFile(filePath);
+    const workbook = readXLSX(filePath);
     const sheet = workbook.Sheets[workbook.SheetNames[0]];
-    const data = XLSX.utils.sheet_to_json(sheet);
+    const data = xlsxUtils.sheet_to_json(sheet);
 
     // Detect column mappings based on common variations
     const columnMap = {
