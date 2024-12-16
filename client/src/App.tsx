@@ -72,7 +72,7 @@ function App() {
         <div className="container flex h-14 items-center">
           <div className="mr-4 flex">
             <a href="/" className="flex items-center space-x-2">
-              <span className="font-bold">Accounting System</span>
+              <span className="font-bold">Analee</span>
             </a>
           </div>
           <nav className="flex flex-1 items-center space-x-6 text-sm font-medium">
