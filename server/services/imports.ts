@@ -1,7 +1,8 @@
 import * as XLSX from "xlsx";
 import type { WorkBook, WorkSheet } from "xlsx";
 import { db } from "@db";
-import { accounts, type InsertAccount } from "@db/schema";
+import { masterAccounts, type InsertMasterAccount, type MasterAccount } from "@db/schema";
+import { eq } from "drizzle-orm";
 
 interface SheetAnalysis {
   headers: string[];
@@ -14,6 +15,29 @@ interface SheetAnalysis {
   };
 }
 
+// Helper to standardize and clean text values
+function cleanTextValue(value: any): string {
+  if (value === null || value === undefined) return '';
+  return String(value).trim();
+}
+
+// Helper to parse numeric values
+function parseNumericValue(value: any): number | null {
+  if (value === null || value === undefined) return null;
+  const cleaned = String(value).replace(/[^0-9.-]/g, '');
+  const parsed = parseFloat(cleaned);
+  return isNaN(parsed) ? null : parsed;
+}
+
+// Utility function to split array into chunks
+function chunks<T>(array: T[], size: number): T[][] {
+  const result = [];
+  for (let i = 0; i < array.length; i += size) {
+    result.push(array.slice(i, i + size));
+  }
+  return result;
+}
+
 export function analyzeExcelSheet(filePath: string, sheetName?: string): SheetAnalysis {
   try {
     const workbook: WorkBook = XLSX.readFile(filePath);
@@ -22,29 +46,21 @@ export function analyzeExcelSheet(filePath: string, sheetName?: string): SheetAn
       : workbook.Sheets[workbook.SheetNames[0]];
     
     // Convert to JSON with header mapping
-    const jsonData = workbook.SheetNames.map(name => {
-      const worksheet = workbook.Sheets[name];
-      return {
-        name,
-        data: XLSX.utils.sheet_to_json(worksheet)
-      };
-    });
+    const jsonData = XLSX.utils.sheet_to_json(sheet) as Record<string, any>[];
+    
+    // Analyze structure
+    const analysis: SheetAnalysis = {
+      headers: [],
+      sample: [],
+      structure: {}
+    };
 
-  // Analyze all sheets
-  const analysis: SheetAnalysis = {
-    headers: [],
-    sample: [],
-    structure: {}
-  };
-
-  if (jsonData.length > 0) {
-    const firstSheet = jsonData[0].data;
-    if (firstSheet.length > 0) {
-      analysis.headers = Object.keys(firstSheet[0] || {});
-      analysis.sample = firstSheet.slice(0, 5);
+    if (jsonData.length > 0) {
+      const firstRow = jsonData[0];
+      analysis.headers = Object.keys(firstRow);
+      analysis.sample = jsonData.slice(0, 5);
       
       // Analyze structure
-      const firstRow = firstSheet[0];
       for (const [key, value] of Object.entries(firstRow)) {
         analysis.structure[key] = {
           type: typeof value,
@@ -63,23 +79,12 @@ export function analyzeExcelSheet(filePath: string, sheetName?: string): SheetAn
         }))
       });
     }
+
+    return analysis;
+  } catch (error) {
+    console.error('Error analyzing Excel sheet:', error);
+    throw new Error(error instanceof Error ? error.message : 'Failed to analyze Excel sheet');
   }
-
-  return analysis;
-}
-
-// Helper to standardize and clean text values
-function cleanTextValue(value: any): string {
-  if (value === null || value === undefined) return '';
-  return String(value).trim();
-}
-
-// Helper to parse numeric values
-function parseNumericValue(value: any): number | null {
-  if (value === null || value === undefined) return null;
-  const cleaned = String(value).replace(/[^0-9.-]/g, '');
-  const parsed = parseFloat(cleaned);
-  return isNaN(parsed) ? null : parsed;
 }
 
 export async function importChartOfAccounts(filePath: string): Promise<void> {
@@ -90,7 +95,7 @@ export async function importChartOfAccounts(filePath: string): Promise<void> {
 
     const workbook = XLSX.readFile(filePath);
     const sheet = workbook.Sheets[workbook.SheetNames[0]];
-    const data = XLSX.utils.sheet_to_json(sheet);
+    const data = XLSX.utils.sheet_to_json(sheet) as Record<string, any>[];
 
     // Detect column mappings based on common variations
     const columnMap = {
@@ -111,11 +116,10 @@ export async function importChartOfAccounts(filePath: string): Promise<void> {
     console.log('Detected column mappings:', columnMap);
 
     // Map Excel columns to our schema with flexible mapping
-    const accountsToInsert: InsertAccount[] = data.map((row: any) => {
-      const code = cleanTextValue(row[columnMap.code] || row.Code || row.AccountCode);
-      const name = cleanTextValue(row[columnMap.name] || row.Name || row.AccountName);
-      const type = cleanTextValue(row[columnMap.type] || row.Type || row.AccountType);
-      const parentCode = cleanTextValue(row[columnMap.parent] || row.ParentId || row.ParentCode);
+    const accountsToInsert = data.map((row): InsertMasterAccount | null => {
+      const code = cleanTextValue(row[columnMap.code ?? ''] || row.Code || row.AccountCode);
+      const name = cleanTextValue(row[columnMap.name ?? ''] || row.Name || row.AccountName);
+      const type = cleanTextValue(row[columnMap.type ?? ''] || row.Type || row.AccountType);
 
       // Validate required fields
       if (!code || !name || !type) {
@@ -131,31 +135,31 @@ export async function importChartOfAccounts(filePath: string): Promise<void> {
         parentId: null, // We'll update this in a second pass
         active: true
       };
-    }).filter((account): account is InsertAccount => account !== null);
+    }).filter((account): account is InsertMasterAccount => account !== null);
 
     // Insert accounts in batches to handle parent-child relationships
     for (const batch of chunks(accountsToInsert, 50)) {
-      await db.insert(accounts).values(batch);
+      await db.insert(masterAccounts).values(batch);
     }
 
     // Update parent relationships in a second pass
-    const allAccounts = await db.query.accounts.findMany();
+    const allAccounts = await db.query.masterAccounts.findMany();
     const accountMap = new Map(allAccounts.map(acc => [acc.code, acc.id]));
 
     for (const row of data) {
-      const code = cleanTextValue(row[columnMap.code] || row.Code || row.AccountCode);
-      const parentCode = cleanTextValue(row[columnMap.parent] || row.ParentId || row.ParentCode);
+      const code = cleanTextValue(row[columnMap.code ?? ''] || row.Code || row.AccountCode);
+      const parentCode = cleanTextValue(row[columnMap.parent ?? ''] || row.ParentId || row.ParentCode);
       
       if (code && parentCode && accountMap.has(code) && accountMap.has(parentCode)) {
         await db
-          .update(accounts)
+          .update(masterAccounts)
           .set({ parentId: accountMap.get(parentCode) })
-          .where(eq(accounts.code, code));
+          .where(eq(masterAccounts.code, code));
       }
     }
   } catch (error) {
     console.error('Error importing chart of accounts:', error);
-    throw new Error(`Failed to import chart of accounts: ${error.message}`);
+    throw new Error(error instanceof Error ? error.message : 'Failed to import chart of accounts');
   }
 }
 
@@ -288,13 +292,4 @@ export async function importTrialBalance(filePath: string): Promise<any[]> {
     console.error('Error importing trial balance:', error);
     throw new Error(`Failed to import trial balance: ${error.message}`);
   }
-}
-
-// Utility function to split array into chunks
-function chunks<T>(array: T[], size: number): T[][] {
-  const result = [];
-  for (let i = 0; i < array.length; i += size) {
-    result.push(array.slice(i, i + size));
-  }
-  return result;
 }

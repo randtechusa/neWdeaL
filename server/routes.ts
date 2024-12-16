@@ -2,7 +2,7 @@ import express, { type Express } from "express";
 import { createServer, type Server } from "http";
 import { setupAuth } from "./auth";
 import { db } from "@db";
-import { eq, desc, and, or, like } from "drizzle-orm";
+import { eq, desc, and, or, like, sql } from "drizzle-orm";
 import {
   transactions,
   patterns,
@@ -10,6 +10,7 @@ import {
   settings,
   users,
 } from "@db/schema";
+import { importBankStatement, importTrialBalance, importChartOfAccounts } from "./services/imports";
 import multer from "multer";
 import { parse as parseCsv } from "csv-parse/sync";
 import { generatePredictions } from "./services/predictions";
@@ -226,6 +227,37 @@ export function registerRoutes(app: Express): Server {
       res.json(predictions);
     } catch (error) {
       res.status(500).json({ message: error.message });
+    }
+  });
+
+  // Admin Chart of Accounts upload route
+  app.post("/api/admin/import/chart-of-accounts", requireAdmin, upload.single("file"), async (req, res) => {
+    try {
+      const file = req.file;
+      if (!file) {
+        return res.status(400).json({ message: "No file uploaded" });
+      }
+
+      // Save the buffer to a temporary file
+      const tempFilePath = `/tmp/${file.originalname}`;
+      await fs.promises.writeFile(tempFilePath, file.buffer);
+
+      try {
+        await importChartOfAccounts(tempFilePath);
+        const result = await getMasterAccountHierarchy();
+        res.json(result);
+      } finally {
+        // Clean up temp file
+        if (fs.existsSync(tempFilePath)) {
+          await fs.promises.unlink(tempFilePath);
+        }
+      }
+    } catch (error) {
+      console.error("Import error:", error);
+      res.status(500).json({ 
+        message: error instanceof Error ? error.message : "Import failed",
+        details: process.env.NODE_ENV === 'development' ? error : undefined
+      });
     }
   });
 

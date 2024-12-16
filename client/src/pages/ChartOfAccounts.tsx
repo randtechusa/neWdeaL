@@ -117,8 +117,12 @@ export function ChartOfAccounts() {
       const res = await fetch('/api/admin/import/chart-of-accounts', {
         method: 'POST',
         body: formData,
+        credentials: 'include'
       });
-      if (!res.ok) throw new Error(await res.text());
+      if (!res.ok) {
+        const text = await res.text();
+        throw new Error(text || 'Failed to import chart of accounts');
+      }
       return res.json();
     },
     onSuccess: () => {
