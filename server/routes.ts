@@ -74,28 +74,53 @@ export function registerRoutes(app: Express): Server {
     }
   });
 
-  app.post("/api/transactions/upload", upload.single("file"), async (req, res) => {
+  app.post("/api/import/:type", upload.single("file"), async (req, res) => {
     try {
-      const fileContent = req.file?.buffer.toString();
-      if (!fileContent) {
+      const { type } = req.params;
+      const file = req.file;
+      
+      if (!file) {
         throw new Error("No file uploaded");
       }
 
-      const records = parseCsv(fileContent, {
-        columns: true,
-        skip_empty_lines: true,
-      });
+      // Save the buffer to a temporary file
+      const tempFilePath = `/tmp/${file.originalname}`;
+      await fs.promises.writeFile(tempFilePath, file.buffer);
 
-      const insertedTransactions = await db.insert(transactions).values(
-        records.map((record: any) => ({
-          date: new Date(record.date),
-          description: record.description,
-          amount: parseFloat(record.amount),
-        }))
-      ).returning();
+      let result;
+      switch (type) {
+        case "chart-of-accounts":
+          await importChartOfAccounts(tempFilePath);
+          result = await getAccountHierarchy();
+          break;
+        
+        case "bank-statement":
+          const bankData = await importBankStatement(tempFilePath);
+          const insertedTransactions = await db.insert(transactions)
+            .values(bankData.map(record => ({
+              date: record.date,
+              description: record.description,
+              amount: record.amount,
+              reference: record.reference,
+            })))
+            .returning();
+          result = insertedTransactions;
+          break;
+        
+        case "trial-balance":
+          result = await importTrialBalance(tempFilePath);
+          break;
 
-      res.json(insertedTransactions);
+        default:
+          throw new Error(`Unknown import type: ${type}`);
+      }
+
+      // Clean up temp file
+      await fs.promises.unlink(tempFilePath);
+      
+      res.json(result);
     } catch (error) {
+      console.error("Import error:", error);
       res.status(500).json({ message: error.message });
     }
   });
