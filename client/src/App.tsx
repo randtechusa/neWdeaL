@@ -5,7 +5,10 @@ import { Analysis } from "@/pages/Analysis";
 import { 
   LayoutDashboard, 
   FileSpreadsheet, 
-  BarChart3 
+  BarChart3,
+  Upload,
+  FileText,
+  Settings
 } from "lucide-react";
 
 function App() {
@@ -16,14 +19,29 @@ function App() {
       icon: <LayoutDashboard className="h-4 w-4" /> 
     },
     { 
+      href: "/upload", 
+      label: "Data Upload", 
+      icon: <Upload className="h-4 w-4" /> 
+    },
+    { 
+      href: "/analysis", 
+      label: "Data Analysis", 
+      icon: <BarChart3 className="h-4 w-4" /> 
+    },
+    { 
+      href: "/reports", 
+      label: "Reports", 
+      icon: <FileText className="h-4 w-4" /> 
+    },
+    { 
       href: "/chart-of-accounts", 
       label: "Chart of Accounts", 
       icon: <FileSpreadsheet className="h-4 w-4" /> 
     },
     { 
-      href: "/analysis", 
-      label: "Transaction Analysis", 
-      icon: <BarChart3 className="h-4 w-4" /> 
+      href: "/settings", 
+      label: "Company Settings", 
+      icon: <Settings className="h-4 w-4" /> 
     },
   ];
 
