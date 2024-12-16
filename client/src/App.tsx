@@ -2,17 +2,6 @@ import { Switch, Route } from "wouter";
 import { Home } from "@/pages/Home";
 import { ChartOfAccounts } from "@/pages/ChartOfAccounts";
 import { Analysis } from "@/pages/Analysis";
-import {
-  Sidebar,
-  SidebarProvider,
-  SidebarHeader,
-  SidebarContent,
-  SidebarMenu,
-  SidebarMenuItem,
-  SidebarMenuButton,
-  SidebarInset,
-} from "@/components/ui/sidebar";
-import { ScrollArea } from "@/components/ui/scroll-area";
 import { 
   LayoutDashboard, 
   FileSpreadsheet, 
@@ -39,49 +28,49 @@ function App() {
   ];
 
   return (
-    <SidebarProvider>
-      <div className="flex h-screen">
-        <Sidebar variant="sidebar" collapsible="icon">
-          <SidebarHeader>
-            <h2 className="px-4 text-lg font-semibold tracking-tight">
-              Accounting System
-            </h2>
-          </SidebarHeader>
-          <SidebarContent>
-            <SidebarMenu>
-              {navItems.map((item) => (
-                <SidebarMenuItem key={item.href}>
-                  <SidebarMenuButton asChild tooltip={item.label}>
-                    <a href={item.href} className="flex items-center gap-2">
-                      {item.icon}
-                      <span>{item.label}</span>
-                    </a>
-                  </SidebarMenuButton>
-                </SidebarMenuItem>
-              ))}
-            </SidebarMenu>
-          </SidebarContent>
-        </Sidebar>
+    <div className="min-h-screen bg-background">
+      {/* Top Navigation Bar */}
+      <header className="sticky top-0 z-50 w-full border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
+        <div className="container flex h-14 items-center">
+          <div className="mr-4 flex">
+            <a href="/" className="flex items-center space-x-2">
+              <span className="font-bold">Accounting System</span>
+            </a>
+          </div>
+          <nav className="flex flex-1 items-center space-x-6 text-sm font-medium">
+            {navItems.map((item) => (
+              <a
+                key={item.href}
+                href={item.href}
+                className="flex items-center gap-2 text-muted-foreground transition-colors hover:text-foreground"
+              >
+                {item.icon}
+                <span>{item.label}</span>
+              </a>
+            ))}
+          </nav>
+        </div>
+      </header>
 
-        <SidebarInset>
-          <Switch>
-            <Route path="/" component={Home} />
-            <Route path="/chart-of-accounts" component={ChartOfAccounts} />
-            <Route path="/analysis" component={Analysis} />
-            <Route>
-              <div className="flex h-full items-center justify-center">
-                <div className="text-center">
-                  <h1 className="text-2xl font-bold">404: Page Not Found</h1>
-                  <p className="text-muted-foreground">
-                    The page you're looking for doesn't exist.
-                  </p>
-                </div>
+      {/* Main Content */}
+      <main className="container py-6">
+        <Switch>
+          <Route path="/" component={Home} />
+          <Route path="/chart-of-accounts" component={ChartOfAccounts} />
+          <Route path="/analysis" component={Analysis} />
+          <Route>
+            <div className="flex h-[calc(100vh-10rem)] items-center justify-center">
+              <div className="text-center">
+                <h1 className="text-2xl font-bold">404: Page Not Found</h1>
+                <p className="text-muted-foreground">
+                  The page you're looking for doesn't exist.
+                </p>
               </div>
-            </Route>
-          </Switch>
-        </SidebarInset>
-      </div>
-    </SidebarProvider>
+            </div>
+          </Route>
+        </Switch>
+      </main>
+    </div>
   );
 }
 
