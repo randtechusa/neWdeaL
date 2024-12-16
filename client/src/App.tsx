@@ -6,7 +6,7 @@ import {
   LayoutDashboard, 
   FileSpreadsheet, 
   BarChart3,
-  Upload,
+  Upload as UploadIcon,
   FileText,
   Settings,
   ChevronDown,
@@ -34,7 +34,7 @@ function App() {
     { 
       href: "/upload", 
       label: "Data Upload", 
-      icon: <Upload className="h-4 w-4" /> 
+      icon: <UploadIcon className="h-4 w-4" /> 
     },
     { 
       href: "/analysis", 

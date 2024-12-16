@@ -188,15 +188,15 @@ export function registerRoutes(app: Express): Server {
       const totalTransactions = await db.query.transactions.findMany();
       const analyzedTransactions = await db.query.transactions.findMany({
         where: and(
-          transactions.accountId.isNotNull(),
-          transactions.explanation.isNotNull()
+          transactions.accountId.notNull(),
+          transactions.explanation.notNull()
         ),
       });
 
       const correctPredictions = await db.query.transactions.findMany({
         where: and(
-          transactions.predictedBy.isNotNull(),
-          transactions.confidence.gte("0.8")
+          transactions.predictedBy.notNull(),
+          transactions.confidence.gte(0.8)
         ),
       });
 
