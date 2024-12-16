@@ -30,49 +30,128 @@ export function analyzeExcelSheet(filePath: string, sheetName?: string): SheetAn
       };
     });
 
-  // Analyze first sheet
-  const firstSheet = jsonData[0].data;
-  const headers = Object.keys(firstSheet[0] || {});
-  const sample = firstSheet.slice(0, 5);
-  
-  // Analyze structure
-  const structure: SheetAnalysis['structure'] = {};
-  if (sample.length > 0) {
-    const firstRow = sample[0];
-    for (const [key, value] of Object.entries(firstRow)) {
-      structure[key] = {
-        type: typeof value,
-        sample: value
-      };
+  // Analyze all sheets
+  const analysis: SheetAnalysis = {
+    headers: [],
+    sample: [],
+    structure: {}
+  };
+
+  if (jsonData.length > 0) {
+    const firstSheet = jsonData[0].data;
+    if (firstSheet.length > 0) {
+      analysis.headers = Object.keys(firstSheet[0] || {});
+      analysis.sample = firstSheet.slice(0, 5);
+      
+      // Analyze structure
+      const firstRow = firstSheet[0];
+      for (const [key, value] of Object.entries(firstRow)) {
+        analysis.structure[key] = {
+          type: typeof value,
+          sample: value
+        };
+      }
+
+      // Log analysis for debugging
+      console.log('Sheet Analysis:', {
+        name: sheetName || workbook.SheetNames[0],
+        headers: analysis.headers,
+        sampleCount: analysis.sample.length,
+        structure: Object.keys(analysis.structure).map(key => ({
+          field: key,
+          type: analysis.structure[key].type
+        }))
+      });
     }
   }
 
-  return {
-    headers,
-    sample,
-    structure
-  };
+  return analysis;
+}
+
+// Helper to standardize and clean text values
+function cleanTextValue(value: any): string {
+  if (value === null || value === undefined) return '';
+  return String(value).trim();
+}
+
+// Helper to parse numeric values
+function parseNumericValue(value: any): number | null {
+  if (value === null || value === undefined) return null;
+  const cleaned = String(value).replace(/[^0-9.-]/g, '');
+  const parsed = parseFloat(cleaned);
+  return isNaN(parsed) ? null : parsed;
 }
 
 export async function importChartOfAccounts(filePath: string): Promise<void> {
   try {
+    // First analyze the file structure
+    const analysis = analyzeExcelSheet(filePath);
+    console.log('Analyzing Chart of Accounts structure:', analysis);
+
     const workbook = XLSX.readFile(filePath);
     const sheet = workbook.Sheets[workbook.SheetNames[0]];
     const data = XLSX.utils.sheet_to_json(sheet);
 
-    // Map Excel columns to our schema
-    const accountsToInsert: InsertAccount[] = data.map((row: any) => ({
-      code: row.Code?.toString() || row.AccountCode?.toString(),
-      name: row.Name || row.AccountName,
-      type: row.Type || row.AccountType,
-      description: row.Description,
-      parentId: row.ParentId || null,
-      active: true
-    }));
+    // Detect column mappings based on common variations
+    const columnMap = {
+      code: analysis.headers.find(h => 
+        /^(code|account.*code|acc.*no|account.*number)/i.test(h)
+      ),
+      name: analysis.headers.find(h => 
+        /^(name|account.*name|description)/i.test(h)
+      ),
+      type: analysis.headers.find(h => 
+        /^(type|account.*type|category)/i.test(h)
+      ),
+      parent: analysis.headers.find(h => 
+        /^(parent|parent.*id|parent.*code)/i.test(h)
+      ),
+    };
+
+    console.log('Detected column mappings:', columnMap);
+
+    // Map Excel columns to our schema with flexible mapping
+    const accountsToInsert: InsertAccount[] = data.map((row: any) => {
+      const code = cleanTextValue(row[columnMap.code] || row.Code || row.AccountCode);
+      const name = cleanTextValue(row[columnMap.name] || row.Name || row.AccountName);
+      const type = cleanTextValue(row[columnMap.type] || row.Type || row.AccountType);
+      const parentCode = cleanTextValue(row[columnMap.parent] || row.ParentId || row.ParentCode);
+
+      // Validate required fields
+      if (!code || !name || !type) {
+        console.warn('Skipping invalid row:', row);
+        return null;
+      }
+
+      return {
+        code,
+        name,
+        type: type.toLowerCase(),
+        description: name, // Using name as description for now
+        parentId: null, // We'll update this in a second pass
+        active: true
+      };
+    }).filter((account): account is InsertAccount => account !== null);
 
     // Insert accounts in batches to handle parent-child relationships
     for (const batch of chunks(accountsToInsert, 50)) {
       await db.insert(accounts).values(batch);
+    }
+
+    // Update parent relationships in a second pass
+    const allAccounts = await db.query.accounts.findMany();
+    const accountMap = new Map(allAccounts.map(acc => [acc.code, acc.id]));
+
+    for (const row of data) {
+      const code = cleanTextValue(row[columnMap.code] || row.Code || row.AccountCode);
+      const parentCode = cleanTextValue(row[columnMap.parent] || row.ParentId || row.ParentCode);
+      
+      if (code && parentCode && accountMap.has(code) && accountMap.has(parentCode)) {
+        await db
+          .update(accounts)
+          .set({ parentId: accountMap.get(parentCode) })
+          .where(eq(accounts.code, code));
+      }
     }
   } catch (error) {
     console.error('Error importing chart of accounts:', error);
@@ -82,18 +161,64 @@ export async function importChartOfAccounts(filePath: string): Promise<void> {
 
 export async function importBankStatement(filePath: string): Promise<any[]> {
   try {
+    // First analyze the file structure
+    const analysis = analyzeExcelSheet(filePath);
+    console.log('Analyzing Bank Statement structure:', analysis);
+
     const workbook = XLSX.readFile(filePath);
     const sheet = workbook.Sheets[workbook.SheetNames[0]];
     const data = XLSX.utils.sheet_to_json(sheet);
 
-    // Map bank statement format
-    return data.map((row: any) => ({
-      date: new Date(row.Date || row.TransactionDate),
-      description: row.Description || row.Narrative,
-      amount: parseFloat(row.Amount || row.Value || 0),
-      reference: row.Reference,
-      balance: parseFloat(row.Balance || 0)
-    }));
+    // Detect column mappings based on common variations
+    const columnMap = {
+      date: analysis.headers.find(h => 
+        /^(date|trans.*date|post.*date|value.*date)/i.test(h)
+      ),
+      description: analysis.headers.find(h => 
+        /^(description|narrative|details|particulars)/i.test(h)
+      ),
+      amount: analysis.headers.find(h => 
+        /^(amount|value|debit|credit)/i.test(h)
+      ),
+      reference: analysis.headers.find(h => 
+        /^(reference|ref|cheque.*no)/i.test(h)
+      ),
+      balance: analysis.headers.find(h => 
+        /^(balance|running.*bal)/i.test(h)
+      ),
+    };
+
+    console.log('Detected column mappings:', columnMap);
+
+    // Map bank statement format with flexible mapping
+    return data.map((row: any) => {
+      // Handle date
+      let transactionDate = row[columnMap.date] || row.Date || row.TransactionDate;
+      if (typeof transactionDate === 'number') {
+        // Handle Excel serial dates
+        transactionDate = new Date(Math.round((transactionDate - 25569) * 86400 * 1000));
+      } else {
+        transactionDate = new Date(transactionDate);
+      }
+
+      // Handle amounts
+      const amountStr = row[columnMap.amount] || row.Amount || row.Value || row.Debit || row.Credit;
+      const balanceStr = row[columnMap.balance] || row.Balance || row.RunningBalance;
+
+      // Convert amounts, handling different formats
+      const amount = parseNumericValue(amountStr) || 0;
+      const balance = parseNumericValue(balanceStr) || 0;
+
+      return {
+        date: transactionDate,
+        description: cleanTextValue(row[columnMap.description] || row.Description || row.Narrative),
+        amount: amount,
+        reference: cleanTextValue(row[columnMap.reference] || row.Reference),
+        balance: balance,
+        // Store original row data for debugging
+        _raw: { ...row }
+      };
+    });
   } catch (error) {
     console.error('Error importing bank statement:', error);
     throw new Error(`Failed to import bank statement: ${error.message}`);
@@ -102,18 +227,63 @@ export async function importBankStatement(filePath: string): Promise<any[]> {
 
 export async function importTrialBalance(filePath: string): Promise<any[]> {
   try {
+    // First analyze the file structure
+    const analysis = analyzeExcelSheet(filePath);
+    console.log('Analyzing Trial Balance structure:', analysis);
+
     const workbook = XLSX.readFile(filePath);
     const sheet = workbook.Sheets[workbook.SheetNames[0]];
     const data = XLSX.utils.sheet_to_json(sheet);
 
-    // Map trial balance format
-    return data.map((row: any) => ({
-      accountCode: row.Code?.toString() || row.AccountCode?.toString(),
-      accountName: row.Name || row.AccountName,
-      debit: parseFloat(row.Debit || 0),
-      credit: parseFloat(row.Credit || 0),
-      balance: parseFloat(row.Balance || 0)
-    }));
+    // Detect column mappings based on common variations
+    const columnMap = {
+      code: analysis.headers.find(h => 
+        /^(code|account.*code|acc.*no)/i.test(h)
+      ),
+      name: analysis.headers.find(h => 
+        /^(name|account.*name|description)/i.test(h)
+      ),
+      debit: analysis.headers.find(h => 
+        /^(debit|dr|debit.*amount)/i.test(h)
+      ),
+      credit: analysis.headers.find(h => 
+        /^(credit|cr|credit.*amount)/i.test(h)
+      ),
+      balance: analysis.headers.find(h => 
+        /^(balance|net|total)/i.test(h)
+      ),
+    };
+
+    console.log('Detected column mappings:', columnMap);
+
+    // Map trial balance format with flexible mapping
+    return data.map((row: any) => {
+      // Get values using detected columns or fallbacks
+      const code = cleanTextValue(row[columnMap.code] || row.Code || row.AccountCode);
+      const name = cleanTextValue(row[columnMap.name] || row.Name || row.AccountName);
+      
+      // Handle amounts
+      const debit = parseNumericValue(row[columnMap.debit] || row.Debit || row.DR) || 0;
+      const credit = parseNumericValue(row[columnMap.credit] || row.Credit || row.CR) || 0;
+      const balance = parseNumericValue(row[columnMap.balance] || row.Balance || row.Total) || 
+                     (debit - credit); // Calculate balance if not provided
+
+      // Skip rows without account code or name
+      if (!code || !name) {
+        console.warn('Skipping invalid row:', row);
+        return null;
+      }
+
+      return {
+        accountCode: code,
+        accountName: name,
+        debit: debit,
+        credit: credit,
+        balance: balance,
+        // Store original row data for debugging
+        _raw: { ...row }
+      };
+    }).filter(entry => entry !== null);
   } catch (error) {
     console.error('Error importing trial balance:', error);
     throw new Error(`Failed to import trial balance: ${error.message}`);
