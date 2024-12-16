@@ -4,7 +4,8 @@ import {
   transactions, 
   patterns, 
   historicalMatches, 
-  accounts,
+  masterAccounts,
+  userAccounts,
   type Transaction
 } from "@db/schema";
 
@@ -165,8 +166,8 @@ async function getAIPredictions(
     matches[0]
   );
 
-  const matchingAccounts = await db.query.accounts.findMany({
-    where: eq(accounts.type, bestMatch.type),
+  const matchingAccounts = await db.query.userAccounts.findMany({
+    where: eq(userAccounts.type, bestMatch.type),
     limit: 1,
   });
 

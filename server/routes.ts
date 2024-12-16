@@ -14,48 +14,89 @@ import multer from "multer";
 import { parse as parseCsv } from "csv-parse/sync";
 import { generatePredictions } from "./services/predictions";
 import { 
-  createAccount,
-  updateAccount,
-  deleteAccount,
-  getAccountHierarchy
+  getMasterAccountHierarchy,
+  createMasterAccount,
+  getUserAccountHierarchy,
+  createUserAccount,
+  updateUserAccount,
+  deleteUserAccount,
+  copyMasterAccountsToUser
 } from "./services/accounts";
 
 const upload = multer({ storage: multer.memoryStorage() });
 
 export function registerRoutes(app: Express): Server {
-  // Chart of Accounts routes
-  app.get("/api/accounts", async (_req, res) => {
+  // Master Chart of Accounts routes (Admin only)
+  app.get("/api/admin/master-accounts", async (_req, res) => {
     try {
-      const result = await getAccountHierarchy();
+      const result = await getMasterAccountHierarchy();
       res.json(result);
-    } catch (error) {
+    } catch (error: any) {
+      res.status(500).json({ message: error.message });
+    }
+  });
+
+  app.post("/api/admin/master-accounts", async (req, res) => {
+    try {
+      const account = await createMasterAccount(req.body);
+      res.json(account);
+    } catch (error: any) {
+      res.status(500).json({ message: error.message });
+    }
+  });
+
+  // User Chart of Accounts routes
+  app.get("/api/accounts", async (req, res) => {
+    try {
+      if (!req.session?.userId) {
+        throw new Error("Not authenticated");
+      }
+      const result = await getUserAccountHierarchy(req.session.userId);
+      res.json(result);
+    } catch (error: any) {
       res.status(500).json({ message: error.message });
     }
   });
 
   app.post("/api/accounts", async (req, res) => {
     try {
-      const account = await createAccount(req.body);
+      if (!req.session?.userId) {
+        throw new Error("Not authenticated");
+      }
+      const account = await createUserAccount({
+        ...req.body,
+        userId: req.session.userId
+      });
       res.json(account);
-    } catch (error) {
+    } catch (error: any) {
       res.status(500).json({ message: error.message });
     }
   });
 
   app.patch("/api/accounts/:id", async (req, res) => {
     try {
-      const account = await updateAccount(Number(req.params.id), req.body);
+      if (!req.session?.userId) {
+        throw new Error("Not authenticated");
+      }
+      const account = await updateUserAccount(
+        req.session.userId,
+        Number(req.params.id),
+        req.body
+      );
       res.json(account);
-    } catch (error) {
+    } catch (error: any) {
       res.status(500).json({ message: error.message });
     }
   });
 
   app.delete("/api/accounts/:id", async (req, res) => {
     try {
-      await deleteAccount(Number(req.params.id));
+      if (!req.session?.userId) {
+        throw new Error("Not authenticated");
+      }
+      await deleteUserAccount(req.session.userId, Number(req.params.id));
       res.status(204).end();
-    } catch (error) {
+    } catch (error: any) {
       res.status(500).json({ message: error.message });
     }
   });
