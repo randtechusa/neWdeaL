@@ -11,7 +11,13 @@ import { eq } from "drizzle-orm";
 // extend express user object with our schema
 declare global {
   namespace Express {
-    interface User extends User { }
+    interface User {
+      id: number;
+      userId: string;
+      email: string;
+      role: string;
+      active: boolean;
+    }
   }
 }
 
@@ -55,10 +61,16 @@ export function setupAuth(app: Express) {
           if (!user) {
             return done(null, false, { message: "Incorrect email." });
           }
+          
+          if (!user.active) {
+            return done(null, false, { message: "Account is deactivated." });
+          }
+          
           const isMatch = await bcrypt.compare(password, user.password);
           if (!isMatch) {
             return done(null, false, { message: "Incorrect password." });
           }
+          
           return done(null, user);
         } catch (err) {
           return done(err);
@@ -138,15 +150,23 @@ async function createAdminUser() {
 
     if (!existingAdmin) {
       const hashedPassword = await bcrypt.hash('admin@123', 10);
-      await db.insert(users).values({
-        userId: 'Admin',
-        email: 'festusa@cnbs.co.za',
-        password: hashedPassword,
-        role: 'admin'
-      });
-      console.log('Admin user created successfully');
+      const [newAdmin] = await db
+        .insert(users)
+        .values({
+          userId: 'Admin',
+          email: 'festusa@cnbs.co.za',
+          password: hashedPassword,
+          role: 'admin',
+          active: true
+        })
+        .returning();
+      console.log('Admin user created successfully:', newAdmin.email);
+    } else {
+      console.log('Admin user already exists:', existingAdmin.email);
     }
   } catch (error) {
     console.error('Error creating admin user:', error);
+    // Log the full error for debugging
+    console.error('Error details:', error);
   }
 }
