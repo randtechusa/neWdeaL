@@ -4,7 +4,6 @@ import { setupAuth } from "./auth";
 import { db } from "@db";
 import { eq, desc, and, or, like } from "drizzle-orm";
 import {
-  accounts,
   transactions,
   patterns,
   historicalMatches,
@@ -23,14 +22,17 @@ import {
   deleteUserAccount,
   copyMasterAccountsToUser
 } from "./services/accounts";
+import { requireAuth, requireAdmin, protectChartOfAccounts } from "./middleware/auth";
+import fs from "fs";
 
 const upload = multer({ storage: multer.memoryStorage() });
 
 export function registerRoutes(app: Express): Server {
   // Set up authentication first
   setupAuth(app);
+
   // Master Chart of Accounts routes (Admin only)
-  app.get("/api/admin/master-accounts", async (_req, res) => {
+  app.get("/api/admin/master-accounts", requireAuth, async (_req, res) => {
     try {
       const result = await getMasterAccountHierarchy();
       res.json(result);
@@ -260,16 +262,13 @@ export function registerRoutes(app: Express): Server {
     try {
       const totalTransactions = await db.query.transactions.findMany();
       const analyzedTransactions = await db.query.transactions.findMany({
-        where: and(
-          transactions.accountId.notNull(),
-          transactions.explanation.notNull()
-        ),
+        where: eq(transactions.accountId, undefined),
       });
 
       const correctPredictions = await db.query.transactions.findMany({
         where: and(
-          transactions.predictedBy.notNull(),
-          transactions.confidence.gte(0.8)
+          eq(transactions.predictedBy, undefined),
+          eq(transactions.confidence, 0.8)
         ),
       });
 
@@ -279,14 +278,14 @@ export function registerRoutes(app: Express): Server {
           : 0;
 
       // Get monthly transaction volume using raw SQL for date functions
-      const monthlyVolume = await db.execute(
-        `SELECT 
+      const monthlyVolume = await db.execute(sql`
+        SELECT 
           date_trunc('month', date)::text as month,
           COUNT(*) as count
         FROM transactions
         GROUP BY date_trunc('month', date)
-        ORDER BY date_trunc('month', date)`
-      );
+        ORDER BY date_trunc('month', date)
+      `);
 
       res.json({
         totalTransactions: totalTransactions.length,
@@ -294,9 +293,14 @@ export function registerRoutes(app: Express): Server {
         predictionAccuracy: Math.round(predictionAccuracy),
         monthlyVolume: monthlyVolume.rows,
       });
-    } catch (error: any) {
-      console.error("Stats error:", error);
-      res.status(500).json({ message: error.message || "Internal server error" });
+    } catch (error) {
+      if (error instanceof Error) {
+        console.error("Stats error:", error);
+        res.status(500).json({ message: error.message });
+      } else {
+        console.error("Unknown error:", error);
+        res.status(500).json({ message: "Internal server error" });
+      }
     }
   });
 
