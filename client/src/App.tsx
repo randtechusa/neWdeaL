@@ -3,9 +3,12 @@ import { Home } from "@/pages/Home";
 import { ChartOfAccounts } from "@/pages/ChartOfAccounts";
 import { Analysis } from "@/pages/Analysis";
 import { AdminDashboard } from "@/pages/admin/Dashboard";
-import { 
-  LayoutDashboard, 
-  FileSpreadsheet, 
+import { ActiveSubscribers } from "@/pages/admin/ActiveSubscribers";
+import { DeactivatedSubscribers } from "@/pages/admin/DeactivatedSubscribers";
+import { AdminSettings } from "@/pages/admin/AdminSettings";
+import {
+  LayoutDashboard,
+  FileSpreadsheet,
   BarChart3,
   Upload as UploadIcon,
   FileText,
@@ -16,7 +19,8 @@ import {
   Scale,
   BarChart2,
   TrendingUp,
-  BadgeDollarSign
+  BadgeDollarSign,
+  Users, // Import Users icon
 } from "lucide-react";
 import {
   DropdownMenu,
@@ -25,22 +29,26 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 
+// Admin Chart of Accounts component
+const AdminChartOfAccounts = () => <div>Chart of Accounts (Admin)</div>;
+
+
 function App() {
   const navItems = [
-    { 
-      href: "/", 
-      label: "Dashboard", 
-      icon: <LayoutDashboard className="h-4 w-4" /> 
+    {
+      href: "/",
+      label: "Dashboard",
+      icon: <LayoutDashboard className="h-4 w-4" />
     },
-    { 
-      href: "/upload", 
-      label: "Data Upload", 
-      icon: <UploadIcon className="h-4 w-4" /> 
+    {
+      href: "/upload",
+      label: "Data Upload",
+      icon: <UploadIcon className="h-4 w-4" />
     },
-    { 
-      href: "/analysis", 
-      label: "Data Analysis", 
-      icon: <BarChart3 className="h-4 w-4" /> 
+    {
+      href: "/analysis",
+      label: "Data Analysis",
+      icon: <BarChart3 className="h-4 w-4" />
     },
     {
       label: "Reports",
@@ -54,15 +62,21 @@ function App() {
         { href: "/reports/cash-flow", label: "Statement of Cash Flow", icon: <BadgeDollarSign className="h-4 w-4" /> }
       ]
     },
-    { 
-      href: "/chart-of-accounts", 
-      label: "Chart of Accounts", 
-      icon: <FileSpreadsheet className="h-4 w-4" /> 
+    {
+      href: "/chart-of-accounts",
+      label: "Chart of Accounts",
+      icon: <FileSpreadsheet className="h-4 w-4" />
     },
-    { 
-      href: "/settings", 
-      label: "Company Settings", 
-      icon: <Settings className="h-4 w-4" /> 
+    {
+      label: "Admin",
+      icon: <Settings className="h-4 w-4" />,
+      dropdown: [
+        { href: "/admin/dashboard", label: "Dashboard", icon: <LayoutDashboard className="h-4 w-4" /> },
+        { href: "/admin/active-subscribers", label: "Active Subscribers", icon: <Users className="h-4 w-4" /> },
+        { href: "/admin/deactivated-subscribers", label: "DeActivated Subscribers", icon: <Users className="h-4 w-4" /> },
+        { href: "/admin/chart-of-accounts", label: "Charts of Accounts", icon: <FileSpreadsheet className="h-4 w-4" /> },
+        { href: "/admin/settings", label: "Admin Settings", icon: <Settings className="h-4 w-4" /> },
+      ]
     },
   ];
 
@@ -77,7 +91,7 @@ function App() {
             </a>
           </div>
           <nav className="flex flex-1 items-center space-x-6 text-sm font-medium">
-            {navItems.map((item) => 
+            {navItems.map((item) =>
               item.dropdown ? (
                 <DropdownMenu key={item.label}>
                   <DropdownMenuTrigger className="flex items-center gap-2 text-muted-foreground transition-colors hover:text-foreground">
@@ -120,7 +134,11 @@ function App() {
           <Route path="/" component={Home} />
           <Route path="/chart-of-accounts" component={ChartOfAccounts} />
           <Route path="/analysis" component={Analysis} />
-          <Route path="/admin" component={AdminDashboard} />
+          <Route path="/admin/dashboard" component={AdminDashboard} />
+          <Route path="/admin/active-subscribers" component={ActiveSubscribers} />
+          <Route path="/admin/deactivated-subscribers" component={DeactivatedSubscribers} />
+          <Route path="/admin/chart-of-accounts" component={AdminChartOfAccounts} />
+          <Route path="/admin/settings" component={AdminSettings} />
           <Route>
             <div className="flex h-[calc(100vh-10rem)] items-center justify-center">
               <div className="text-center">
