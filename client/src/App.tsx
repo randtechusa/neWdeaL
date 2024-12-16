@@ -8,8 +8,21 @@ import {
   BarChart3,
   Upload,
   FileText,
-  Settings
+  Settings,
+  ChevronDown,
+  Wallet,
+  BookOpen,
+  Scale,
+  BarChart2,
+  TrendingUp,
+  BadgeDollarSign
 } from "lucide-react";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 
 function App() {
   const navItems = [
@@ -28,10 +41,17 @@ function App() {
       label: "Data Analysis", 
       icon: <BarChart3 className="h-4 w-4" /> 
     },
-    { 
-      href: "/reports", 
-      label: "Reports", 
-      icon: <FileText className="h-4 w-4" /> 
+    {
+      label: "Reports",
+      icon: <FileText className="h-4 w-4" />,
+      dropdown: [
+        { href: "/reports/bank-statements", label: "Bank Statements", icon: <Wallet className="h-4 w-4" /> },
+        { href: "/reports/general-ledger", label: "General Ledger", icon: <BookOpen className="h-4 w-4" /> },
+        { href: "/reports/trial-balance", label: "Trial Balance", icon: <Scale className="h-4 w-4" /> },
+        { href: "/reports/financial-position", label: "Statement of Financial Position", icon: <BarChart2 className="h-4 w-4" /> },
+        { href: "/reports/income", label: "Statement of Income", icon: <TrendingUp className="h-4 w-4" /> },
+        { href: "/reports/cash-flow", label: "Statement of Cash Flow", icon: <BadgeDollarSign className="h-4 w-4" /> }
+      ]
     },
     { 
       href: "/chart-of-accounts", 
@@ -56,16 +76,39 @@ function App() {
             </a>
           </div>
           <nav className="flex flex-1 items-center space-x-6 text-sm font-medium">
-            {navItems.map((item) => (
-              <a
-                key={item.href}
-                href={item.href}
-                className="flex items-center gap-2 text-muted-foreground transition-colors hover:text-foreground"
-              >
-                {item.icon}
-                <span>{item.label}</span>
-              </a>
-            ))}
+            {navItems.map((item) => 
+              item.dropdown ? (
+                <DropdownMenu key={item.label}>
+                  <DropdownMenuTrigger className="flex items-center gap-2 text-muted-foreground transition-colors hover:text-foreground">
+                    {item.icon}
+                    <span>{item.label}</span>
+                    <ChevronDown className="h-4 w-4" />
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent align="start">
+                    {item.dropdown.map((subItem) => (
+                      <DropdownMenuItem key={subItem.href} asChild>
+                        <a
+                          href={subItem.href}
+                          className="flex items-center gap-2 w-full"
+                        >
+                          {subItem.icon}
+                          <span>{subItem.label}</span>
+                        </a>
+                      </DropdownMenuItem>
+                    ))}
+                  </DropdownMenuContent>
+                </DropdownMenu>
+              ) : (
+                <a
+                  key={item.href}
+                  href={item.href}
+                  className="flex items-center gap-2 text-muted-foreground transition-colors hover:text-foreground"
+                >
+                  {item.icon}
+                  <span>{item.label}</span>
+                </a>
+              )
+            )}
           </nav>
         </div>
       </header>
