@@ -166,37 +166,78 @@ export async function importChartOfAccounts(filePath: string): Promise<void> {
   try {
     console.log('Starting Chart of Accounts import from:', filePath);
     
-    // First analyze the file structure
-    const analysis = analyzeExcelSheet(filePath);
-    console.log('Chart of Accounts Analysis:', {
-      headers: analysis.headers,
-      sampleCount: analysis.sample.length,
-      firstRow: analysis.sample[0],
-      structure: analysis.structure
+    // Read the workbook first
+    const workbook = readXLSX(filePath, {
+      type: 'buffer',
+      cellDates: true,
+      cellNF: false,
+      cellText: false
     });
+    
+    if (!workbook.SheetNames.length) {
+      throw new ImportValidationError(
+        'EMPTY_WORKBOOK',
+        'The Excel file is empty. Please ensure it contains data.'
+      );
+    }
 
-    const workbook = readXLSX(filePath);
+    // Get the first sheet
     const sheet = workbook.Sheets[workbook.SheetNames[0]];
-    const data = xlsxUtils.sheet_to_json(sheet) as Record<string, any>[];
+    if (!sheet['!ref']) {
+      throw new ImportValidationError(
+        'EMPTY_WORKSHEET',
+        'The worksheet is empty. Please ensure it contains data.'
+      );
+    }
 
-    // Detect column mappings based on the exact column names required
-    const columnMap = {
-      code: analysis.headers.find(h => 
-        h.toLowerCase() === 'accounts' || /^account.*number$/i.test(h)
-      ),
-      name: analysis.headers.find(h => 
-        h.toLowerCase() === 'account name' || /^account.*name$/i.test(h)
-      ),
-      type: analysis.headers.find(h => 
-        h.toLowerCase() === 'category' || /^type$/i.test(h)
-      ),
-      subCategory: analysis.headers.find(h => 
-        h.toLowerCase() === 'sub category' || /^sub.*category$/i.test(h)
-      ),
-      links: analysis.headers.find(h => 
-        h.toLowerCase() === 'links'
-      ),
+    // Convert to JSON with header mapping
+    const data = xlsxUtils.sheet_to_json(sheet, {
+      raw: false,
+      defval: null
+    }) as Record<string, any>[];
+
+    if (!data.length) {
+      throw new ImportValidationError(
+        'NO_DATA',
+        'No data found in the worksheet. Please ensure the file contains valid data.'
+      );
+    }
+
+    // Get headers from the first row
+    const headers = Object.keys(data[0]);
+    console.log('Found headers:', headers);
+
+    // Define required columns and their possible variations
+    const requiredColumns = {
+      code: ['accounts', 'account code', 'account number', 'code'],
+      name: ['account name', 'name', 'description'],
+      type: ['category', 'type', 'account type'],
+      subCategory: ['sub category', 'subcategory', 'parent'],
+      links: ['links', 'link']
     };
+
+    // Find matching columns in the headers
+    const columnMap = Object.entries(requiredColumns).reduce((acc, [key, variations]) => {
+      const match = headers.find(h => 
+        variations.includes(h.toLowerCase().trim())
+      );
+      
+      if (!match && ['code', 'name', 'type'].includes(key)) {
+        throw new ImportValidationError(
+          'MISSING_REQUIRED_COLUMNS',
+          `Required column "${key}" not found in the file.`,
+          {
+            column: key,
+            expected: variations.join(' or ')
+          }
+        );
+      }
+      
+      acc[key] = match;
+      return acc;
+    }, {} as Record<string, string | undefined>);
+
+    console.log('Column mapping:', columnMap);
 
     // Log the detected mappings for debugging
     console.log('Column mappings detected:', columnMap);
@@ -204,46 +245,77 @@ export async function importChartOfAccounts(filePath: string): Promise<void> {
 
     console.log('Detected column mappings:', columnMap);
 
-    // Map Excel columns to our schema with flexible mapping
-    const accountsToInsert = data.map((row): InsertMasterAccount | null => {
-      const code = cleanTextValue(row[columnMap.code ?? ''] || row.Code || row.AccountCode);
-      const name = cleanTextValue(row[columnMap.name ?? ''] || row.Name || row.AccountName);
-      const type = cleanTextValue(row[columnMap.type ?? ''] || row.Type || row.AccountType);
-
+    // Process and validate each row
+    const accountsToInsert = data.map((row, index): InsertMasterAccount => {
+      // Get values using the mapped columns
+      const code = cleanTextValue(row[columnMap.code!]);
+      const name = cleanTextValue(row[columnMap.name!]);
+      const type = cleanTextValue(row[columnMap.type!]);
+      
       // Validate required fields
-      if (!code || !name || !type) {
-        console.warn('Skipping invalid row:', row);
-        return null;
+      if (!code) {
+        throw new ImportValidationError(
+          'INVALID_DATA_FORMAT',
+          'Account code is required',
+          { row: index + 2, column: columnMap.code }
+        );
+      }
+      
+      if (!name) {
+        throw new ImportValidationError(
+          'INVALID_DATA_FORMAT',
+          'Account name is required',
+          { row: index + 2, column: columnMap.name }
+        );
+      }
+      
+      const validTypes = ['asset', 'liability', 'equity', 'income', 'expense'];
+      const normalizedType = type.toLowerCase();
+      
+      if (!type || !validTypes.includes(normalizedType)) {
+        throw new ImportValidationError(
+          'INVALID_DATA_FORMAT',
+          'Invalid account type. Must be one of: asset, liability, equity, income, expense',
+          { 
+            row: index + 2, 
+            column: columnMap.type,
+            value: type,
+            expected: validTypes.join(', ')
+          }
+        );
       }
 
       return {
         code,
         name,
-        type: type.toLowerCase(),
-        description: name, // Using name as description for now
+        type: normalizedType,
+        description: name,
         parentId: null, // We'll update this in a second pass
         active: true
       };
-    }).filter((account): account is InsertMasterAccount => account !== null);
+    });
 
     // Insert accounts in batches to handle parent-child relationships
     for (const batch of chunks(accountsToInsert, 50)) {
       await db.insert(masterAccounts).values(batch);
     }
 
-    // Update parent relationships in a second pass
+    // Handle parent-child relationships based on the account code hierarchy
     const allAccounts = await db.query.masterAccounts.findMany();
     const accountMap = new Map(allAccounts.map(acc => [acc.code, acc.id]));
 
     for (const row of data) {
       const code = cleanTextValue(row[columnMap.code ?? ''] || row.Code || row.AccountCode);
-      const parentCode = cleanTextValue(row[columnMap.parent ?? ''] || row.ParentId || row.ParentCode);
+      const subCategory = cleanTextValue(row[columnMap.subCategory ?? ''] || row.SubCategory || row['Sub Category']);
       
-      if (code && parentCode && accountMap.has(code) && accountMap.has(parentCode)) {
-        await db
-          .update(masterAccounts)
-          .set({ parentId: accountMap.get(parentCode) })
-          .where(eq(masterAccounts.code, code));
+      if (code && code.includes('.')) {
+        const parentCode = code.split('.').slice(0, -1).join('.');
+        if (accountMap.has(code) && accountMap.has(parentCode)) {
+          await db
+            .update(masterAccounts)
+            .set({ parentId: accountMap.get(parentCode) })
+            .where(eq(masterAccounts.code, code));
+        }
       }
     }
   } catch (error) {
