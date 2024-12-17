@@ -12,13 +12,18 @@ import {
 import { useToast } from '@/hooks/use-toast';
 import { useUser } from '@/hooks/use-user';
 
-// Define tutorial steps
+// Define tutorial steps with integrated learning modules
 export const tutorialSteps = {
   WELCOME: 'welcome',
+  FINANCIAL_BASICS: 'financial_basics',
   DASHBOARD: 'dashboard',
+  ACCOUNTING_101: 'accounting_101',
   CHART_OF_ACCOUNTS: 'chart_of_accounts',
+  DATA_MANAGEMENT: 'data_management',
   DATA_UPLOAD: 'data_upload',
+  ANALYSIS_INTRO: 'analysis_intro',
   DATA_ANALYSIS: 'data_analysis',
+  REPORTING_BASICS: 'reporting_basics',
   REPORTS: 'reports',
   SETTINGS: 'settings',
 } as const;
@@ -82,10 +87,23 @@ export function TutorialProvider({ children }: TutorialProviderProps) {
   });
 
   // Tutorial step content
-  const stepContent: Record<TutorialStep, { title: string; description: string }> = {
+  const stepContent: Record<TutorialStep, { 
+    title: string; 
+    description: string;
+    hasModule?: boolean;
+    moduleId?: number;
+  }> = {
     welcome: {
       title: 'Welcome to Analee',
-      description: 'Let\'s take a quick tour of the platform to help you get started.',
+      description: 'Let\'s start your journey to financial excellence with some essential knowledge.',
+      hasModule: true,
+      moduleId: 1,
+    },
+    financial_basics: {
+      title: 'Financial Literacy Fundamentals',
+      description: 'Learn the basic concepts of financial management and accounting.',
+      hasModule: true,
+      moduleId: 2,
     },
     dashboard: {
       title: 'Dashboard',

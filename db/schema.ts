@@ -85,11 +85,26 @@ export const settings = pgTable("settings", {
   updatedAt: timestamp("updated_at").defaultNow(),
 });
 
-// Tutorial progress tracking
+// Learning modules and content
+export const learningModules = pgTable("learning_modules", {
+  id: serial("id").primaryKey(),
+  title: text("title").notNull(),
+  description: text("description").notNull(),
+  category: text("category").notNull(), // budgeting, investing, accounting, etc.
+  order: integer("order").notNull(),
+  content: jsonb("content").notNull(), // structured content with text, images, quiz questions
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+// User progress tracking
 export const userTutorialProgress = pgTable("user_tutorial_progress", {
   id: serial("id").primaryKey(),
   userId: integer("user_id").references(() => users.id).notNull(),
   completedSteps: text("completed_steps").array(),
+  completedModules: integer("completed_modules").array(), // references learning_modules.id
+  currentModuleId: integer("current_module_id").references(() => learningModules.id),
+  moduleProgress: jsonb("module_progress"), // tracks quiz scores, time spent, etc.
   isCompleted: boolean("is_completed").default(false),
   lastStep: text("last_step"),
   createdAt: timestamp("created_at").defaultNow(),
