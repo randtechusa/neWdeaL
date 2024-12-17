@@ -14,7 +14,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from 
 import { Form, FormField, FormItem, FormLabel, FormControl } from "@/components/ui/form";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useForm } from "react-hook-form";
-import { Plus, Edit2, Trash2, Upload, Loader2 } from "lucide-react";
+import { Plus, Edit2, Trash2, Upload, Loader2, LogOut } from "lucide-react";
 import { ErrorAnimation } from "@/components/ui/error-animation";
 import { useUser } from "@/hooks/use-user";
 import { useToast } from "@/hooks/use-toast";
@@ -197,7 +197,30 @@ export function ChartOfAccounts() {
   return (
     <div className="p-8">
       <div className="flex justify-between items-center mb-8">
-        <h1 className="text-3xl font-bold">Chart of Accounts</h1>
+        <div className="flex items-center gap-4">
+          <h1 className="text-3xl font-bold">Chart of Accounts</h1>
+          <Button 
+            variant="outline"
+            onClick={async () => {
+              try {
+                await fetch('/api/logout', {
+                  method: 'POST',
+                  credentials: 'include'
+                });
+                window.location.href = '/';
+              } catch (error) {
+                toast({
+                  variant: "destructive",
+                  title: "Error",
+                  description: "Failed to logout"
+                });
+              }
+            }}
+          >
+            <LogOut className="h-4 w-4 mr-2" />
+            Logout
+          </Button>
+        </div>
         <div className="flex gap-2">
           {isAdmin && (
             <Dialog open={uploadDialogOpen} onOpenChange={setUploadDialogOpen}>
