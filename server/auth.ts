@@ -27,19 +27,24 @@ export function setupAuth(app: Express) {
   const MemoryStore = createMemoryStore(session);
   const sessionSettings: session.SessionOptions = {
     secret: process.env.REPL_ID || "analee-secret",
-    resave: false,
-    saveUninitialized: false,
-    cookie: {},
+    resave: true,
+    saveUninitialized: true,
+    cookie: {
+      maxAge: 24 * 60 * 60 * 1000, // 24 hours
+      httpOnly: true,
+      sameSite: 'lax'
+    },
     store: new MemoryStore({
       checkPeriod: 86400000, // prune expired entries every 24h
     }),
   };
 
+  // Create admin user if it doesn't exist
+  createAdminUser().catch(console.error);
+
   if (app.get("env") === "production") {
     app.set("trust proxy", 1);
-    sessionSettings.cookie = {
-      secure: true,
-    };
+    sessionSettings.cookie.secure = true;
   }
 
   app.use(session(sessionSettings));
@@ -125,9 +130,6 @@ export function setupAuth(app: Express) {
       done(err);
     }
   });
-
-  // Create admin user if it doesn't exist
-  createAdminUser();
 
   // Auth routes
   // Registration endpoint
