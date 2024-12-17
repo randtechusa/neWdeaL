@@ -54,11 +54,11 @@ export function setupAuth(app: Express) {
       },
       async (email, password, done) => {
         try {
-          const [user] = await db
-            .select()
-            .from(users)
-            .where(eq(users.email, email))
-            .limit(1);
+          console.log('Attempting login for email:', email);
+          
+          const user = await db.query.users.findFirst({
+            where: eq(users.email, email),
+          });
 
           if (!user) {
             console.log('User not found:', email);
@@ -76,10 +76,8 @@ export function setupAuth(app: Express) {
             return done(null, false, { message: "Incorrect password." });
           }
 
-          // Log successful login with role
           console.log(`Login successful for ${user.role} user:`, email);
           
-          console.log('Login successful for user:', email);
           return done(null, {
             id: user.id,
             userId: user.userId,
@@ -101,14 +99,18 @@ export function setupAuth(app: Express) {
 
   passport.deserializeUser(async (id: number, done) => {
     try {
-      const [user] = await db
-        .select()
-        .from(users)
-        .where(eq(users.id, id))
-        .limit(1);
+      const user = await db.query.users.findFirst({
+        where: eq(users.id, id),
+      });
       
       if (!user) {
-        return done(null, null);
+        console.log('User not found during deserialization:', id);
+        return done(null, false);
+      }
+
+      if (!user.active) {
+        console.log('Inactive user during deserialization:', id);
+        return done(null, false);
       }
 
       done(null, {
