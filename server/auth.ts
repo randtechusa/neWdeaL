@@ -114,20 +114,28 @@ export function setupAuth(app: Express) {
             return done(null, false, { message: "Account is deactivated" });
           }
 
-          // Enhanced password verification with detailed logging
-          let isValidPassword = false;
           try {
             console.log('Starting password comparison for user:', normalizedEmail);
-            isValidPassword = await bcryptjs.compare(password, user.password);
+            const isValidPassword = await bcryptjs.compare(password, user.password);
             console.log('Password comparison completed. Result:', isValidPassword);
+
+            if (!isValidPassword) {
+              console.log('Invalid password for user:', normalizedEmail);
+              return done(null, false, { message: "Invalid email or password" });
+            }
+
+            // If we get here, authentication was successful
+            console.log('Authentication successful for user:', normalizedEmail);
+            return done(null, {
+              id: user.id,
+              userId: user.userId,
+              email: user.email,
+              role: user.role,
+              active: user.active
+            });
           } catch (bcryptError) {
             console.error('Password verification failed:', bcryptError);
             return done(null, false, { message: "Authentication error occurred" });
-          }
-
-          if (!isValidPassword) {
-            console.log('Invalid password for user:', normalizedEmail);
-            return done(null, false, { message: "Invalid email or password" });
           }
 
           console.log(`Login successful for ${user.role} user:`, normalizedEmail);
@@ -305,14 +313,16 @@ app.post("/api/login", (req, res, next) => {
 
 async function createAdminUser() {
   try {
-    const [existingAdmin] = await db
-      .select()
-      .from(users)
-      .where(eq(users.email, 'festusa@cnbs.co.za'))
-      .limit(1);
+    // Check for existing admin
+    const existingAdmin = await db.query.users.findFirst({
+      where: eq(users.email, 'festusa@cnbs.co.za'),
+    });
 
     if (!existingAdmin) {
+      console.log('Creating admin user...');
       const hashedPassword = await bcryptjs.hash('admin@123', 10);
+      
+      // Create admin user
       const [newUser] = await db
         .insert(users)
         .values({
@@ -324,14 +334,37 @@ async function createAdminUser() {
         })
         .returning();
 
-      // Copy master accounts for admin user
-      await copyMasterAccountsToUser(newUser.id);
+      if (!newUser) {
+        throw new Error('Failed to create admin user');
+      }
+
       console.log('Admin user created successfully:', newUser.email);
+      
+      // Copy master accounts for admin user
+      try {
+        await copyMasterAccountsToUser(newUser.id);
+        console.log('Master accounts copied for admin user');
+      } catch (copyError) {
+        console.error('Error copying master accounts:', copyError);
+        // Don't throw here, as the user is already created
+      }
     } else {
       console.log('Admin user already exists:', existingAdmin.email);
+      
+      // Ensure admin user has the correct password
+      const hashedPassword = await bcryptjs.hash('admin@123', 10);
+      await db
+        .update(users)
+        .set({ 
+          password: hashedPassword,
+          active: true 
+        })
+        .where(eq(users.id, existingAdmin.id));
+      
+      console.log('Admin user credentials updated');
     }
   } catch (error) {
-    console.error('Error creating admin user:', error);
-    console.error('Error details:', error);
+    console.error('Error in admin user setup:', error);
+    throw error; // Propagate the error to handle it in the setup
   }
 }
