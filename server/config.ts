@@ -33,10 +33,13 @@ const developmentConfig: Config = {
     }
   },
   database: {
-    url: process.env.DATABASE_URL!,
-    maxConnections: 2,
-    idleTimeout: 3000,
-    connectionTimeout: 2000
+    url: isProduction 
+      ? process.env.PRODUCTION_DATABASE_URL || process.env.DATABASE_URL!
+      : process.env.DEVELOPMENT_DATABASE_URL || process.env.DATABASE_URL!,
+    maxConnections: isProduction ? 2 : 1, // Strict limit: only 1 connection in development
+    idleTimeout: isProduction ? 3000 : 100, // 100ms timeout in development
+    connectionTimeout: isProduction ? 2000 : 250, // 250ms connection timeout in development
+    forceCleanup: !isProduction // Force connection cleanup in development
   },
   security: {
     rateLimiting: {
