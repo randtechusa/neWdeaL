@@ -4,6 +4,28 @@ import { db } from "@db";
 import { masterAccounts, type InsertMasterAccount, type MasterAccount } from "@db/schema";
 import { eq } from "drizzle-orm";
 
+export class ImportValidationError extends Error {
+  code: string;
+  details?: {
+    row?: number;
+    column?: string;
+    value?: any;
+    expected?: string;
+  };
+
+  constructor(code: string, message: string, details?: {
+    row?: number;
+    column?: string;
+    value?: any;
+    expected?: string;
+  }) {
+    super(message);
+    this.name = 'ImportValidationError';
+    this.code = code;
+    this.details = details;
+  }
+}
+
 interface ValidationError {
   code: string;
   message: string;
@@ -27,18 +49,7 @@ interface SheetAnalysis {
   errors?: ValidationError[];
 }
 
-// Custom error class for import process
-class ImportValidationError extends Error {
-  code: string;
-  details?: Record<string, any>;
-
-  constructor(code: string, message: string, details?: Record<string, any>) {
-    super(message);
-    this.name = 'ImportValidationError';
-    this.code = code;
-    this.details = details;
-  }
-}
+// Import validation error class is already defined above
 
 // Helper to standardize and clean text values
 function cleanTextValue(value: any): string {
@@ -70,7 +81,10 @@ export function analyzeExcelSheet(filePath: string, sheetName?: string): SheetAn
       throw new ImportValidationError(
         'INVALID_FILE_TYPE',
         'Invalid file type. Only Excel files (.xlsx, .xls) are supported.',
-        { filePath }
+        { 
+          expected: ".xlsx or .xls file",
+          value: filePath.split('.').pop()
+        }
       );
     }
 
