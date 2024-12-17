@@ -14,6 +14,12 @@ type RequestResult = {
 } | {
   ok: false;
   message: string;
+  code?: 'MISSING_CREDENTIALS' | 'INVALID_EMAIL_FORMAT' | 'INVALID_PASSWORD' | 'ACCOUNT_DEACTIVATED' | 'SYSTEM_ERROR';
+};
+
+type ApiError = {
+  message: string;
+  code?: string;
 };
 
 async function handleRequest(
@@ -62,11 +68,32 @@ async function fetchUser(): Promise<SelectUser | null> {
       return null;
     }
 
-    if (response.status >= 500) {
-      throw new Error(`${response.status}: ${response.statusText}`);
+    let errorData: ApiError;
+
+    try {
+      errorData = await response.json();
+    } catch {
+      // If response is not JSON, use text
+      const message = await response.text();
+      errorData = { 
+        message: message || response.statusText,
+        code: 'SYSTEM_ERROR'
+      };
     }
 
-    throw new Error(`${response.status}: ${await response.text()}`);
+    if (response.status >= 500) {
+      return { 
+        ok: false, 
+        message: "A system error occurred. Please try again later.",
+        code: 'SYSTEM_ERROR'
+      };
+    }
+
+    return { 
+      ok: false, 
+      message: errorData.message,
+      code: errorData.code as RequestResult['code']
+    };
   }
 
   return response.json();

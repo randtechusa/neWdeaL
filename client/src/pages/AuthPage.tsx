@@ -41,17 +41,45 @@ export default function AuthPage() {
         : await register(data);
 
       if (!result.ok) {
+        let errorTitle = activeTab === "login" ? "Login Failed" : "Registration Failed";
+        let errorDescription = result.message;
+
+        // Provide more user-friendly messages based on error codes
+        if (result.code === 'MISSING_CREDENTIALS') {
+          errorTitle = "Missing Information";
+        } else if (result.code === 'INVALID_EMAIL_FORMAT') {
+          errorTitle = "Invalid Email";
+        } else if (result.code === 'INVALID_PASSWORD') {
+          errorTitle = "Invalid Password";
+        } else if (result.code === 'ACCOUNT_DEACTIVATED') {
+          errorTitle = "Account Deactivated";
+        }
+
         toast({
           variant: "destructive",
-          title: `${activeTab === "login" ? "Login" : "Registration"} failed`,
-          description: result.message,
+          title: errorTitle,
+          description: errorDescription,
+          duration: 5000, // Show error for 5 seconds
+        });
+      } else {
+        // Show success message
+        toast({
+          variant: "default",
+          title: activeTab === "login" ? "Welcome Back!" : "Registration Successful",
+          description: activeTab === "login" 
+            ? "You have successfully logged in."
+            : "Your account has been created successfully.",
+          duration: 3000,
         });
       }
     } catch (error: any) {
+      // Handle unexpected errors
+      console.error('Authentication error:', error);
       toast({
         variant: "destructive",
-        title: `${activeTab === "login" ? "Login" : "Registration"} failed`,
-        description: error.message,
+        title: "System Error",
+        description: "An unexpected error occurred. Please try again later.",
+        duration: 5000,
       });
     } finally {
       setIsLoading(false);

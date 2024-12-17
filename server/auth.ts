@@ -67,9 +67,26 @@ export function setupAuth(app: Express) {
         try {
           console.log('Attempting login for email:', email);
           
+          // Validate input format
           if (!email || !password) {
-            console.log('Missing credentials');
-            return done(null, false, { message: "Email and password are required." });
+            const missingFields = [];
+            if (!email) missingFields.push('email');
+            if (!password) missingFields.push('password');
+            console.log('Missing credentials:', missingFields.join(', '));
+            return done(null, false, { 
+              message: `Please provide ${missingFields.join(' and ')}.`,
+              code: 'MISSING_CREDENTIALS'
+            });
+          }
+
+          // Validate email format
+          const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+          if (!emailRegex.test(email)) {
+            console.log('Invalid email format:', email);
+            return done(null, false, { 
+              message: "Please enter a valid email address.",
+              code: 'INVALID_EMAIL_FORMAT'
+            });
           }
 
           const normalizedEmail = email.toLowerCase().trim();
