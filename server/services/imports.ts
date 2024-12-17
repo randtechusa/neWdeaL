@@ -40,29 +40,44 @@ function chunks<T>(array: T[], size: number): T[][] {
 
 export function analyzeExcelSheet(filePath: string, sheetName?: string): SheetAnalysis {
   try {
-    const workbook: WorkBook = readXLSX(filePath);
+    const workbook: WorkBook = readXLSX(filePath, {
+      cellDates: true,
+      cellNF: false,
+      cellText: false
+    });
+    
     const sheet: WorkSheet = sheetName 
       ? workbook.Sheets[sheetName]
       : workbook.Sheets[workbook.SheetNames[0]];
     
+    // Get the range of the sheet
+    const range = xlsxUtils.decode_range(sheet['!ref'] || 'A1');
+    const headers: string[] = [];
+    
+    // Extract headers from the first row
+    for(let C = range.s.c; C <= range.e.c; ++C) {
+      const cell = sheet[xlsxUtils.encode_cell({r: range.s.r, c: C})];
+      headers.push(cell ? String(cell.v).trim() : '');
+    }
+    
     // Convert to JSON with header mapping
-    const jsonData = xlsxUtils.sheet_to_json(sheet) as Record<string, any>[];
+    const jsonData = xlsxUtils.sheet_to_json(sheet, {
+      raw: false,
+      dateNF: 'yyyy-mm-dd'
+    }) as Record<string, any>[];
     
     // Analyze structure
     const analysis: SheetAnalysis = {
-      headers: [],
-      sample: [],
+      headers,
+      sample: jsonData.slice(0, 5),
       structure: {}
     };
 
-    if (jsonData.length > 0) {
-      const firstRow = jsonData[0];
-      analysis.headers = Object.keys(firstRow);
-      analysis.sample = jsonData.slice(0, 5);
-      
-      // Analyze structure
-      for (const [key, value] of Object.entries(firstRow)) {
-        analysis.structure[key] = {
+    if (headers.length > 0) {
+      // Analyze structure based on the first data row
+      for (const header of headers) {
+        const value = jsonData[0]?.[header];
+        analysis.structure[header] = {
           type: typeof value,
           sample: value
         };
@@ -97,21 +112,28 @@ export async function importChartOfAccounts(filePath: string): Promise<void> {
     const sheet = workbook.Sheets[workbook.SheetNames[0]];
     const data = xlsxUtils.sheet_to_json(sheet) as Record<string, any>[];
 
-    // Detect column mappings based on common variations
+    // Detect column mappings based on the exact column names required
     const columnMap = {
       code: analysis.headers.find(h => 
-        /^(code|account.*code|acc.*no|account.*number)/i.test(h)
+        h.toLowerCase() === 'accounts' || /^account.*number$/i.test(h)
       ),
       name: analysis.headers.find(h => 
-        /^(name|account.*name|description)/i.test(h)
+        h.toLowerCase() === 'account name' || /^account.*name$/i.test(h)
       ),
       type: analysis.headers.find(h => 
-        /^(type|account.*type|category)/i.test(h)
+        h.toLowerCase() === 'category' || /^type$/i.test(h)
       ),
-      parent: analysis.headers.find(h => 
-        /^(parent|parent.*id|parent.*code)/i.test(h)
+      subCategory: analysis.headers.find(h => 
+        h.toLowerCase() === 'sub category' || /^sub.*category$/i.test(h)
+      ),
+      links: analysis.headers.find(h => 
+        h.toLowerCase() === 'links'
       ),
     };
+
+    // Log the detected mappings for debugging
+    console.log('Column mappings detected:', columnMap);
+    console.log('Available headers:', analysis.headers);
 
     console.log('Detected column mappings:', columnMap);
 
