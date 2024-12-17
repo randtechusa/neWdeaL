@@ -7,6 +7,8 @@ import bcryptjs from "bcryptjs";
 import { users, type User } from "@db/schema";
 import { db } from "@db";
 import { eq } from "drizzle-orm";
+import { copyMasterAccountsToUser } from './services/accounts';
+
 
 // extend express user object with our schema
 declare global {
@@ -100,7 +102,55 @@ export function setupAuth(app: Express) {
   createAdminUser();
 
   // Auth routes
-  app.post("/api/login", (req, res, next) => {
+  // Registration endpoint
+app.post("/api/register", async (req, res) => {
+  try {
+    const { email, password, userId } = req.body;
+
+    // Check if user already exists
+    const existingUser = await db.query.users.findFirst({
+      where: eq(users.email, email),
+    });
+
+    if (existingUser) {
+      return res.status(400).json({ message: "Email already registered" });
+    }
+
+    // Hash password
+    const hashedPassword = await bcryptjs.hash(password, 10);
+
+    // Create new user
+    const [newUser] = await db
+      .insert(users)
+      .values({
+        email,
+        password: hashedPassword,
+        userId,
+        role: 'user',
+        active: true
+      })
+      .returning();
+
+    // Copy master accounts for the new user
+    await copyMasterAccountsToUser(newUser.id);
+
+    // Auto-login after registration
+    req.login(newUser, (err) => {
+      if (err) {
+        return res.status(500).json({ message: "Error during login after registration" });
+      }
+      res.json({
+        message: "Registration successful",
+        user: { id: newUser.id, email: newUser.email, role: newUser.role }
+      });
+    });
+  } catch (error) {
+    console.error('Registration error:', error);
+    res.status(500).json({ message: "Registration failed" });
+  }
+});
+
+app.post("/api/login", (req, res, next) => {
     passport.authenticate("local", (err: any, user: Express.User, info: IVerifyOptions) => {
       if (err) {
         return next(err);
@@ -150,7 +200,7 @@ async function createAdminUser() {
 
     if (!existingAdmin) {
       const hashedPassword = await bcryptjs.hash('admin@123', 10);
-      const [newAdmin] = await db
+      const [newUser] = await db
         .insert(users)
         .values({
           userId: 'Admin',
@@ -160,7 +210,10 @@ async function createAdminUser() {
           active: true
         })
         .returning();
-      console.log('Admin user created successfully:', newAdmin.email);
+
+      // Copy master accounts for admin user
+      await copyMasterAccountsToUser(newUser.id);
+      console.log('Admin user created successfully:', newUser.email);
     } else {
       console.log('Admin user already exists:', existingAdmin.email);
     }
