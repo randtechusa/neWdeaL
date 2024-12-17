@@ -77,7 +77,7 @@ export function setupAuth(app: Express) {
   createAdminUser().catch(console.error);
 
   if (app.get("env") === "production") {
-    app.set("trust proxy", 1);
+    app.set("trust proxy", "1");
     sessionSettings.cookie.secure = true;
   }
 
@@ -93,70 +93,41 @@ export function setupAuth(app: Express) {
       },
       async (email, password, done) => {
         try {
-          console.log('Attempting login for email:', email);
-          
-          // Check rate limiting
-          if (isRateLimited(email)) {
-            console.log('Rate limit exceeded for:', email);
-            return done(null, false, {
-              message: "Too many login attempts. Please try again later.",
-              code: 'RATE_LIMIT_EXCEEDED'
-            });
-          }
-          
-          // Validate input format
           if (!email || !password) {
-            const missingFields = [];
-            if (!email) missingFields.push('email');
-            if (!password) missingFields.push('password');
-            console.log('Missing credentials:', missingFields.join(', '));
-            return done(null, false, { 
-              message: `Please provide ${missingFields.join(' and ')}.`,
-              code: 'MISSING_CREDENTIALS'
-            });
-          }
-
-          // Validate email format
-          const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-          if (!emailRegex.test(email)) {
-            console.log('Invalid email format:', email);
-            return done(null, false, { 
-              message: "Please enter a valid email address.",
-              code: 'INVALID_EMAIL_FORMAT'
-            });
+            return done(null, false, { message: "Email and password are required" });
           }
 
           const normalizedEmail = email.toLowerCase().trim();
+          console.log('Attempting login for email:', normalizedEmail);
           
-          // Find user with a direct query including all fields
           const user = await db.query.users.findFirst({
             where: eq(users.email, normalizedEmail),
           });
 
           if (!user) {
             console.log('User not found:', normalizedEmail);
-            return done(null, false, { message: "Invalid email or password." });
+            return done(null, false, { message: "Invalid email or password" });
           }
-          
+
           if (!user.active) {
-            console.log('User account deactivated:', normalizedEmail);
-            return done(null, false, { message: "Account is deactivated." });
+            console.log('Account deactivated:', normalizedEmail);
+            return done(null, false, { message: "Account is deactivated" });
           }
 
           // Enhanced password verification with detailed logging
-          let isMatch = false;
+          let isValidPassword = false;
           try {
             console.log('Starting password comparison for user:', normalizedEmail);
-            isMatch = await bcryptjs.compare(password, user.password);
-            console.log('Password comparison completed. Result:', isMatch);
+            isValidPassword = await bcryptjs.compare(password, user.password);
+            console.log('Password comparison completed. Result:', isValidPassword);
           } catch (bcryptError) {
             console.error('Password verification failed:', bcryptError);
-            return done(null, false, { message: "Authentication error occurred." });
+            return done(null, false, { message: "Authentication error occurred" });
           }
-            
-          if (!isMatch) {
-            console.log('Password mismatch for user:', normalizedEmail);
-            return done(null, false, { message: "Invalid email or password." });
+
+          if (!isValidPassword) {
+            console.log('Invalid password for user:', normalizedEmail);
+            return done(null, false, { message: "Invalid email or password" });
           }
 
           console.log(`Login successful for ${user.role} user:`, normalizedEmail);
@@ -276,21 +247,40 @@ app.post("/api/register", async (req, res) => {
 app.post("/api/login", (req, res, next) => {
     passport.authenticate("local", (err: any, user: Express.User, info: IVerifyOptions) => {
       if (err) {
-        return next(err);
+        console.error('Login error:', err);
+        return res.status(500).json({ 
+          message: "An error occurred during login",
+          ok: false 
+        });
       }
 
       if (!user) {
-        return res.status(400).send(info.message ?? "Login failed");
+        return res.status(401).json({ 
+          message: info.message || "Invalid credentials",
+          ok: false
+        });
       }
 
       req.logIn(user, (err) => {
         if (err) {
-          return next(err);
+          console.error('Login session error:', err);
+          return res.status(500).json({ 
+            message: "Failed to create login session",
+            ok: false 
+          });
         }
+
+        const sanitizedUser = {
+          id: user.id,
+          email: user.email,
+          role: user.role,
+          userId: user.userId
+        };
 
         return res.json({
           message: "Login successful",
-          user: { id: user.id, email: user.email, role: user.role }
+          user: sanitizedUser,
+          ok: true
         });
       });
     })(req, res, next);
