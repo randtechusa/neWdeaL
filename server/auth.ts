@@ -75,6 +75,9 @@ export function setupAuth(app: Express) {
             console.log('Password mismatch for user:', email);
             return done(null, false, { message: "Incorrect password." });
           }
+
+          // Log successful login with role
+          console.log(`Login successful for ${user.role} user:`, email);
           
           console.log('Login successful for user:', email);
           return done(null, {
@@ -129,6 +132,11 @@ export function setupAuth(app: Express) {
 app.post("/api/register", async (req, res) => {
   try {
     const { email, password, userId } = req.body;
+
+    // Validate required fields
+    if (!email || !password || !userId) {
+      return res.status(400).json({ message: "All fields are required" });
+    }
 
     // Check if user already exists
     const existingUser = await db.query.users.findFirst({
