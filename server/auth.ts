@@ -61,20 +61,31 @@ export function setupAuth(app: Express) {
             .limit(1);
 
           if (!user) {
+            console.log('User not found:', email);
             return done(null, false, { message: "Incorrect email." });
           }
           
           if (!user.active) {
+            console.log('User account deactivated:', email);
             return done(null, false, { message: "Account is deactivated." });
           }
           
           const isMatch = await bcryptjs.compare(password, user.password);
           if (!isMatch) {
+            console.log('Password mismatch for user:', email);
             return done(null, false, { message: "Incorrect password." });
           }
           
-          return done(null, user);
+          console.log('Login successful for user:', email);
+          return done(null, {
+            id: user.id,
+            userId: user.userId,
+            email: user.email,
+            role: user.role,
+            active: user.active
+          });
         } catch (err) {
+          console.error('Login error:', err);
           return done(err);
         }
       }
@@ -92,8 +103,20 @@ export function setupAuth(app: Express) {
         .from(users)
         .where(eq(users.id, id))
         .limit(1);
-      done(null, user);
+      
+      if (!user) {
+        return done(null, null);
+      }
+
+      done(null, {
+        id: user.id,
+        userId: user.userId,
+        email: user.email,
+        role: user.role,
+        active: user.active
+      });
     } catch (err) {
+      console.error('Deserialize error:', err);
       done(err);
     }
   });
