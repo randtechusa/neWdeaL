@@ -254,40 +254,30 @@ export function ChartOfAccounts() {
       <Table>
         <TableHeader>
           <TableRow>
-            <TableHead>Code</TableHead>
-            <TableHead>Name</TableHead>
-            <TableHead>Type</TableHead>
-            <TableHead>Description</TableHead>
-            <TableHead>Link</TableHead>
+            <TableHead>Links</TableHead>
+            <TableHead>Category</TableHead>
+            <TableHead>Sub Category</TableHead>
+            <TableHead>Accounts</TableHead>
+            <TableHead>Account Name</TableHead>
             <TableHead className="w-24">Actions</TableHead>
           </TableRow>
         </TableHeader>
         <TableBody>
           {accounts?.map((account) => (
             <TableRow key={account.id}>
+              <TableCell>
+                <Button
+                  variant="link"
+                  className="p-0 h-auto font-normal"
+                  onClick={() => window.open(`/accounts/${account.id}`, '_blank')}
+                >
+                  View
+                </Button>
+              </TableCell>
+              <TableCell>{account.type}</TableCell>
+              <TableCell>{account.parentId ? 'Sub' : 'Main'}</TableCell>
               <TableCell>{account.code}</TableCell>
               <TableCell>{account.name}</TableCell>
-              <TableCell>{account.type}</TableCell>
-              <TableCell>{account.description}</TableCell>
-              <TableCell>
-                {account.masterAccountId ? (
-                  <Button
-                    variant="link"
-                    className="p-0 h-auto font-normal"
-                    onClick={() => window.open(`/accounts/${account.masterAccountId}`, '_blank')}
-                  >
-                    View Master Account
-                  </Button>
-                ) : account.id ? (
-                  <Button
-                    variant="link"
-                    className="p-0 h-auto font-normal"
-                    onClick={() => window.open(`/master-accounts/${account.id}`, '_blank')}
-                  >
-                    View Details
-                  </Button>
-                ) : null}
-              </TableCell>
               <TableCell>
                 <div className="flex gap-2">
                   <Button
