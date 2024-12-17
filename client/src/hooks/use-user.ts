@@ -1,9 +1,10 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import type { InsertUser, SelectUser } from "@db/schema";
 
-type LoginData = {
+type AuthData = {
   email: string;
   password: string;
+  userId?: string;
 };
 
 type RequestResult = {
@@ -17,7 +18,7 @@ type RequestResult = {
 async function handleRequest(
   url: string,
   method: string,
-  body?: LoginData
+  body?: AuthData
 ): Promise<RequestResult> {
   try {
     const response = await fetch(url, {
@@ -73,8 +74,17 @@ export function useUser() {
     retry: false
   });
 
-  const loginMutation = useMutation<RequestResult, Error, LoginData>({
+  const loginMutation = useMutation<RequestResult, Error, AuthData>({
     mutationFn: (userData) => handleRequest('/api/login', 'POST', userData),
+    onSuccess: (data) => {
+      if (data.ok && data.user) {
+        queryClient.setQueryData(['user'], data.user);
+      }
+    },
+  });
+
+  const registerMutation = useMutation<RequestResult, Error, AuthData>({
+    mutationFn: (userData) => handleRequest('/api/register', 'POST', userData),
     onSuccess: (data) => {
       if (data.ok && data.user) {
         queryClient.setQueryData(['user'], data.user);
@@ -94,6 +104,7 @@ export function useUser() {
     isLoading,
     error,
     login: loginMutation.mutateAsync,
+    register: registerMutation.mutateAsync,
     logout: logoutMutation.mutateAsync,
   };
 }
