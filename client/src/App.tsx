@@ -8,6 +8,10 @@ import { DeactivatedSubscribers } from "@/pages/admin/DeactivatedSubscribers";
 import { AdminSettings } from "@/pages/admin/AdminSettings";
 import AuthPage from "@/pages/AuthPage";
 import { useUser } from "@/hooks/use-user";
+import { useQuery } from "@tanstack/react-query";
+import { Table, TableHeader, TableBody, TableHead, TableRow, TableCell } from "@/components/ui/table";
+import { Button } from "@/components/ui/button";
+import type { MasterAccount } from "@db/schema";
 import {
   LayoutDashboard,
   FileSpreadsheet,
@@ -32,8 +36,64 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 
-// Admin Chart of Accounts component
-const AdminChartOfAccounts = () => <div>Chart of Accounts (Admin)</div>;
+// Admin Chart of Accounts component with protected data and environment separation
+const AdminChartOfAccounts = () => {
+  const { data: accounts = [] } = useQuery<MasterAccount[]>({
+    queryKey: ["/api/admin/master-accounts"],
+  });
+
+  return (
+    <div className="p-8">
+      <div className="flex justify-between items-center mb-8">
+        <h1 className="text-3xl font-bold">Master Chart of Accounts</h1>
+      </div>
+
+      <Table>
+        <TableHeader>
+          <TableRow>
+            <TableHead>Links</TableHead>
+            <TableHead>Category</TableHead>
+            <TableHead>Sub Category</TableHead>
+            <TableHead>Accounts</TableHead>
+            <TableHead>Account Name</TableHead>
+            <TableHead className="w-24">Actions</TableHead>
+          </TableRow>
+        </TableHeader>
+        <TableBody>
+          {accounts?.map((account) => (
+            <TableRow key={account.id}>
+              <TableCell>
+                <Button
+                  variant="link"
+                  className="p-0 h-auto font-normal"
+                  onClick={() => window.open(`/admin/accounts/${account.id}`, '_blank')}
+                >
+                  View
+                </Button>
+              </TableCell>
+              <TableCell>{account.type}</TableCell>
+              <TableCell>{account.parentId ? 'Sub' : 'Main'}</TableCell>
+              <TableCell>{account.code}</TableCell>
+              <TableCell>{account.name}</TableCell>
+              <TableCell>
+                <div className="flex gap-2">
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    title="View Details"
+                    onClick={() => window.open(`/admin/accounts/${account.id}`, '_blank')}
+                  >
+                    <FileText className="h-4 w-4" />
+                  </Button>
+                </div>
+              </TableCell>
+            </TableRow>
+          ))}
+        </TableBody>
+      </Table>
+    </div>
+  );
+};
 
 
 function App() {
