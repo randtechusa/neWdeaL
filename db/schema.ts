@@ -156,10 +156,8 @@ export const patternsRelations = relations(patterns, ({ one }) => ({
 // Schemas
 // Types
 export type User = typeof users.$inferSelect;
-export type InsertUser = typeof users.$inferInsert;
+export type InsertUser = Omit<typeof users.$inferInsert, 'id' | 'createdAt' | 'updatedAt'>;
 export type SelectUser = Omit<User, 'password' | 'createdAt' | 'updatedAt'>;
-export type InsertUser = Omit<User, 'id' | 'createdAt' | 'updatedAt'>;
-export type SelectUser = Omit<User, 'password'>;
 
 export type MasterAccount = typeof masterAccounts.$inferSelect;
 export type InsertMasterAccount = typeof masterAccounts.$inferInsert;

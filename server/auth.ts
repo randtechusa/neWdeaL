@@ -160,6 +160,8 @@ export function setupAuth(app: Express) {
   });
 
   // Optimize user session handling to reduce database queries
+  const userCache = new Map<number, Express.User>(); //Added user cache
+
   passport.deserializeUser(async (id: number, done) => {
     try {
       // Cache check to prevent unnecessary database queries
@@ -195,66 +197,66 @@ export function setupAuth(app: Express) {
 
   // Auth routes
   // Registration endpoint
-app.post("/api/register", async (req, res) => {
-  try {
-    const { email, password, userId } = req.body;
-
-    // Validate required fields
-    if (!email || !password || !userId) {
-      return res.status(400).json({ message: "All fields are required" });
-    }
-
-    // Check if user already exists
-    const existingUser = await db.query.users.findFirst({
-      where: eq(users.email, email),
-    });
-
-    if (existingUser) {
-      return res.status(400).json({ message: "Email already registered" });
-    }
-
-    // Hash password
-    const hashedPassword = await bcryptjs.hash(password, 10);
-
-    // Create new user
-    const [newUser] = await db
-      .insert(users)
-      .values({
-        email,
-        password: hashedPassword,
-        userId,
-        role: 'user',
-        active: true
-      })
-      .returning();
-
+  app.post("/api/register", async (req, res) => {
     try {
-      // Copy master accounts for the new user
-      console.log('Copying master accounts for new user:', newUser.id);
-      await copyMasterAccountsToUser(newUser.id);
-      console.log('Successfully copied master accounts for user:', newUser.id);
-    } catch (error) {
-      console.error('Error copying master accounts:', error);
-      return res.status(500).json({ message: "Failed to set up user accounts" });
-    }
+      const { email, password, userId } = req.body;
 
-    // Auto-login after registration
-    req.login(newUser, (err) => {
-      if (err) {
-        return res.status(500).json({ message: "Error during login after registration" });
+      // Validate required fields
+      if (!email || !password || !userId) {
+        return res.status(400).json({ message: "All fields are required" });
       }
-      res.json({
-        message: "Registration successful",
-        user: { id: newUser.id, email: newUser.email, role: newUser.role }
-      });
-    });
-  } catch (error) {
-    console.error('Registration error:', error);
-    res.status(500).json({ message: "Registration failed" });
-  }
-});
 
-app.post("/api/login", async (req, res, next) => {
+      // Check if user already exists
+      const existingUser = await db.query.users.findFirst({
+        where: eq(users.email, email),
+      });
+
+      if (existingUser) {
+        return res.status(400).json({ message: "Email already registered" });
+      }
+
+      // Hash password
+      const hashedPassword = await bcryptjs.hash(password, 10);
+
+      // Create new user
+      const [newUser] = await db
+        .insert(users)
+        .values({
+          email,
+          password: hashedPassword,
+          userId,
+          role: 'user',
+          active: true
+        })
+        .returning();
+
+      try {
+        // Copy master accounts for the new user
+        console.log('Copying master accounts for new user:', newUser.id);
+        await copyMasterAccountsToUser(newUser.id);
+        console.log('Successfully copied master accounts for user:', newUser.id);
+      } catch (error) {
+        console.error('Error copying master accounts:', error);
+        return res.status(500).json({ message: "Failed to set up user accounts" });
+      }
+
+      // Auto-login after registration
+      req.login(newUser, (err) => {
+        if (err) {
+          return res.status(500).json({ message: "Error during login after registration" });
+        }
+        res.json({
+          message: "Registration successful",
+          user: { id: newUser.id, email: newUser.email, role: newUser.role }
+        });
+      });
+    } catch (error) {
+      console.error('Registration error:', error);
+      res.status(500).json({ message: "Registration failed" });
+    }
+  });
+
+  app.post("/api/login", async (req, res, next) => {
     try {
       passport.authenticate("local", async (err: any, user: Express.User, info: IVerifyOptions) => {
         if (err) {
