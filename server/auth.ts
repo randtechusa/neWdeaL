@@ -95,44 +95,23 @@ export function setupAuth(app: Express) {
           }
 
           const normalizedEmail = email.toLowerCase().trim();
-          console.log('Attempting login for email:', normalizedEmail);
           
           const user = await db.query.users.findFirst({
             where: eq(users.email, normalizedEmail),
           });
 
           if (!user) {
-            console.log('User not found:', normalizedEmail);
             return done(null, false, { message: "Invalid email or password" });
           }
 
           if (!user.active) {
-            console.log('Account deactivated:', normalizedEmail);
             return done(null, false, { message: "Account is deactivated" });
           }
 
-          try {
-            console.log('Starting password comparison for user:', normalizedEmail);
-            const isValidPassword = await bcryptjs.compare(password, user.password);
-            console.log('Password comparison completed. Result:', isValidPassword);
+          const isValidPassword = await bcryptjs.compare(password, user.password);
 
-            if (!isValidPassword) {
-              console.log('Invalid password for user:', normalizedEmail);
-              return done(null, false, { message: "Invalid email or password" });
-            }
-
-            // If we get here, authentication was successful
-            console.log('Authentication successful for user:', normalizedEmail);
-            return done(null, {
-              id: user.id,
-              userId: user.userId,
-              email: user.email,
-              role: user.role,
-              active: user.active
-            });
-          } catch (bcryptError) {
-            console.error('Password verification failed:', bcryptError);
-            return done(null, false, { message: "Authentication error occurred" });
+          if (!isValidPassword) {
+            return done(null, false, { message: "Invalid email or password" });
           }
 
           console.log(`Login successful for ${user.role} user:`, normalizedEmail);
