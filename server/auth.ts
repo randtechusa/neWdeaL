@@ -35,7 +35,7 @@ export function setupAuth(app: Express) {
       maxAge: 24 * 60 * 60 * 1000, // 24 hours
       httpOnly: true,
       sameSite: 'lax',
-      secure: process.env.NODE_ENV === 'production',
+      secure: false, // Set to false to work in development
       path: '/'
     },
     store: new MemoryStore({
