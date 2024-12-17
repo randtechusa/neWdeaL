@@ -258,6 +258,7 @@ export function ChartOfAccounts() {
             <TableHead>Name</TableHead>
             <TableHead>Type</TableHead>
             <TableHead>Description</TableHead>
+            <TableHead>Link</TableHead>
             <TableHead className="w-24">Actions</TableHead>
           </TableRow>
         </TableHeader>
@@ -268,6 +269,25 @@ export function ChartOfAccounts() {
               <TableCell>{account.name}</TableCell>
               <TableCell>{account.type}</TableCell>
               <TableCell>{account.description}</TableCell>
+              <TableCell>
+                {account.masterAccountId ? (
+                  <Button
+                    variant="link"
+                    className="p-0 h-auto font-normal"
+                    onClick={() => window.open(`/accounts/${account.masterAccountId}`, '_blank')}
+                  >
+                    View Master Account
+                  </Button>
+                ) : account.id ? (
+                  <Button
+                    variant="link"
+                    className="p-0 h-auto font-normal"
+                    onClick={() => window.open(`/master-accounts/${account.id}`, '_blank')}
+                  >
+                    View Details
+                  </Button>
+                ) : null}
+              </TableCell>
               <TableCell>
                 <div className="flex gap-2">
                   <Button
