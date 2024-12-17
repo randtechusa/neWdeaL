@@ -257,7 +257,6 @@ export function ChartOfAccounts() {
             <TableHead>Links</TableHead>
             <TableHead>Category</TableHead>
             <TableHead>Sub Category</TableHead>
-            <TableHead>Accounts</TableHead>
             <TableHead>Account Name</TableHead>
             <TableHead className="w-24">Actions</TableHead>
           </TableRow>
@@ -276,7 +275,6 @@ export function ChartOfAccounts() {
               </TableCell>
               <TableCell>{account.type}</TableCell>
               <TableCell>{account.parentId ? 'Sub' : 'Main'}</TableCell>
-              <TableCell>{account.code}</TableCell>
               <TableCell>{account.name}</TableCell>
               <TableCell>
                 <div className="flex gap-2">
