@@ -1,5 +1,5 @@
 import { db } from "@db";
-import { eq } from "drizzle-orm";
+import { eq, and } from "drizzle-orm";
 import { 
   masterAccounts, 
   userAccounts, 
