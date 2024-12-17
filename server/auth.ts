@@ -159,29 +159,34 @@ export function setupAuth(app: Express) {
     done(null, user.id);
   });
 
+  // Optimize user session handling to reduce database queries
   passport.deserializeUser(async (id: number, done) => {
     try {
+      // Cache check to prevent unnecessary database queries
+      const cachedUser = userCache.get(id);
+      if (cachedUser) {
+        return done(null, cachedUser);
+      }
+
       const user = await db.query.users.findFirst({
         where: eq(users.id, id),
       });
       
-      if (!user) {
-        console.log('User not found during deserialization:', id);
+      if (!user || !user.active) {
         return done(null, false);
       }
 
-      if (!user.active) {
-        console.log('Inactive user during deserialization:', id);
-        return done(null, false);
-      }
-
-      done(null, {
+      const sanitizedUser = {
         id: user.id,
         userId: user.userId,
         email: user.email,
         role: user.role,
         active: user.active
-      });
+      };
+
+      // Cache the user data
+      userCache.set(id, sanitizedUser);
+      done(null, sanitizedUser);
     } catch (err) {
       console.error('Deserialize error:', err);
       done(err);

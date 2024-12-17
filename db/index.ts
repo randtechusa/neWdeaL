@@ -9,21 +9,12 @@ if (!process.env.DATABASE_URL) {
 
 const isProduction = process.env.NODE_ENV === 'production';
 
-// Separate database connections for development and production
-const developmentDb = drizzle({
+// Single database connection to prevent multiple instances
+export const db = drizzle({
   connection: process.env.DATABASE_URL,
   schema,
   ws: ws,
 });
-
-const productionDb = drizzle({
-  connection: process.env.PRODUCTION_DATABASE_URL || process.env.DATABASE_URL,
-  schema,
-  ws: ws,
-});
-
-// Export the appropriate database connection based on environment
-export const db = isProduction ? productionDb : developmentDb;
 
 // Protect production data from development changes
 export const executeQuery = async (query: any, params?: any) => {
