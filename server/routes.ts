@@ -3,6 +3,7 @@ import { createServer, type Server } from "http";
 import { setupAuth } from "./auth";
 import { db } from "@db";
 import { eq, desc, and, or, like, sql } from "drizzle-orm";
+import { ImportValidationError } from "./services/imports";
 import {
   transactions,
   patterns,
