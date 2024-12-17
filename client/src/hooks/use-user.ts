@@ -10,6 +10,7 @@ type AuthData = {
 type RequestResult = {
   ok: true;
   user?: SelectUser;
+  message?: string;
 } | {
   ok: false;
   message: string;
@@ -28,19 +29,26 @@ async function handleRequest(
       credentials: "include",
     });
 
-    if (!response.ok) {
-      if (response.status >= 500) {
-        return { ok: false, message: response.statusText };
-      }
+    const data = await response.json().catch(() => null);
 
-      const message = await response.text();
-      return { ok: false, message };
+    if (!response.ok) {
+      return { 
+        ok: false, 
+        message: data?.message || response.statusText || 'An error occurred' 
+      };
     }
 
-    const data = await response.json();
-    return { ok: true, user: data.user };
+    return { 
+      ok: true, 
+      user: data?.user,
+      message: data?.message 
+    };
   } catch (e: any) {
-    return { ok: false, message: e.toString() };
+    console.error('Auth request error:', e);
+    return { 
+      ok: false, 
+      message: e.toString() 
+    };
   }
 }
 
