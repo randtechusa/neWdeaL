@@ -78,9 +78,31 @@ export function registerRoutes(app: Express): Server {
         }
       } catch (error) {
         console.error("Import error:", error);
+        
+        if (error instanceof ImportValidationError) {
+          const status = {
+            'INVALID_FILE_TYPE': 400,
+            'EMPTY_WORKBOOK': 400,
+            'MISSING_REQUIRED_COLUMNS': 400,
+            'INVALID_DATA_FORMAT': 422,
+            'DUPLICATE_ACCOUNT_CODE': 409
+          }[error.code] || 500;
+
+          return res.status(status).json({
+            code: error.code,
+            message: error.message,
+            details: error.details
+          });
+        }
+
+        // For all other errors, return a generic message in production
+        const isProduction = process.env.NODE_ENV === 'production';
         res.status(500).json({ 
-          message: error instanceof Error ? error.message : "Import failed",
-          details: process.env.NODE_ENV === 'development' ? error : undefined
+          code: 'INTERNAL_SERVER_ERROR',
+          message: isProduction 
+            ? 'An error occurred while importing the Chart of Accounts. Please verify your file and try again.' 
+            : error instanceof Error ? error.message : 'Import failed',
+          details: isProduction ? undefined : error
         });
       }
   });

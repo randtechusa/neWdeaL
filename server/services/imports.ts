@@ -4,6 +4,17 @@ import { db } from "@db";
 import { masterAccounts, type InsertMasterAccount, type MasterAccount } from "@db/schema";
 import { eq } from "drizzle-orm";
 
+interface ValidationError {
+  code: string;
+  message: string;
+  details?: {
+    row?: number;
+    column?: string;
+    value?: any;
+    expected?: string;
+  };
+}
+
 interface SheetAnalysis {
   headers: string[];
   sample: Record<string, any>[];
@@ -13,6 +24,20 @@ interface SheetAnalysis {
       sample: any;
     };
   };
+  errors?: ValidationError[];
+}
+
+// Custom error class for import process
+class ImportValidationError extends Error {
+  code: string;
+  details?: Record<string, any>;
+
+  constructor(code: string, message: string, details?: Record<string, any>) {
+    super(message);
+    this.name = 'ImportValidationError';
+    this.code = code;
+    this.details = details;
+  }
 }
 
 // Helper to standardize and clean text values
@@ -40,14 +65,32 @@ function chunks<T>(array: T[], size: number): T[][] {
 
 export function analyzeExcelSheet(filePath: string, sheetName?: string): SheetAnalysis {
   try {
+    // Validate file extension
+    if (!filePath.match(/\.(xlsx|xls)$/i)) {
+      throw new ImportValidationError(
+        'INVALID_FILE_TYPE',
+        'Invalid file type. Only Excel files (.xlsx, .xls) are supported.',
+        { filePath }
+      );
+    }
+
     const workbook: WorkBook = readXLSX(filePath, {
       cellDates: true,
       cellNF: false,
       cellText: false,
       type: 'buffer',
       codepage: 65001, // UTF-8
-      raw: false
+      raw: false,
+      WTF: true // Handle errors more gracefully
     });
+
+    // Validate workbook structure
+    if (!workbook.SheetNames.length) {
+      throw new ImportValidationError(
+        'EMPTY_WORKBOOK',
+        'The Excel file is empty or corrupted. Please ensure it contains at least one sheet.'
+      );
+    }
     
     const sheet: WorkSheet = sheetName 
       ? workbook.Sheets[sheetName]

@@ -119,11 +119,22 @@ export function ChartOfAccounts() {
         body: formData,
         credentials: 'include'
       });
+      
+      const data = await res.json();
+      
       if (!res.ok) {
-        const text = await res.text();
-        throw new Error(text || 'Failed to import chart of accounts');
+        // Handle structured error responses
+        if (data.code && data.message) {
+          throw {
+            code: data.code,
+            message: data.message,
+            details: data.details
+          };
+        }
+        throw new Error('Failed to import chart of accounts');
       }
-      return res.json();
+      
+      return data;
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['/api/admin/master-accounts'] });
@@ -133,14 +144,53 @@ export function ChartOfAccounts() {
         description: "Chart of accounts imported successfully",
       });
     },
-    onError: (error: Error) => {
-      toast({
-        variant: "destructive",
-        title: "Error",
-        description: error.message,
-      });
+    onError: (error: any) => {
+      // Handle structured error responses
+      if (error.code) {
+        let description = error.message;
+        
+        // Add details if available
+        if (error.details) {
+          if (error.details.row) {
+            description += `\nRow: ${error.details.row}`;
+          }
+          if (error.details.column) {
+            description += `\nColumn: ${error.details.column}`;
+          }
+          if (error.details.value) {
+            description += `\nInvalid value: ${error.details.value}`;
+          }
+          if (error.details.expected) {
+            description += `\nExpected: ${error.details.expected}`;
+          }
+        }
+
+        toast({
+          variant: "destructive",
+          title: getFriendlyErrorTitle(error.code),
+          description: description,
+        });
+      } else {
+        toast({
+          variant: "destructive",
+          title: "Import Error",
+          description: error.message || 'An error occurred while importing',
+        });
+      }
     },
   });
+
+  // Helper function to convert error codes to user-friendly titles
+  const getFriendlyErrorTitle = (code: string) => {
+    const titles: Record<string, string> = {
+      'INVALID_FILE_TYPE': 'Invalid File Type',
+      'EMPTY_WORKBOOK': 'Empty Spreadsheet',
+      'MISSING_REQUIRED_COLUMNS': 'Missing Required Columns',
+      'INVALID_DATA_FORMAT': 'Invalid Data Format',
+      'DUPLICATE_ACCOUNT_CODE': 'Duplicate Account Code'
+    };
+    return titles[code] || 'Import Error';
+  };
 
   const onSubmit = async (data: AccountFormData) => {
     await createMutation.mutateAsync(data);
@@ -163,16 +213,39 @@ export function ChartOfAccounts() {
                 <DialogHeader>
                   <DialogTitle>Upload Chart of Accounts</DialogTitle>
                 </DialogHeader>
-                <Input
-                  type="file"
-                  accept=".xlsx,.xls"
-                  onChange={(e) => {
-                    const file = e.target.files?.[0];
-                    if (file) {
-                      uploadMutation.mutateAsync(file);
-                    }
-                  }}
-                />
+                <div className="space-y-4">
+                  <div className="text-sm text-muted-foreground">
+                    Please upload an Excel file (.xlsx, .xls) containing your chart of accounts.
+                    The file must include the following columns:
+                    <ul className="list-disc list-inside mt-2 space-y-1">
+                      <li>Links</li>
+                      <li>Category</li>
+                      <li>Sub Category</li>
+                      <li>Accounts</li>
+                      <li>Account Name</li>
+                    </ul>
+                  </div>
+                  
+                  <div className="grid w-full max-w-sm items-center gap-1.5">
+                    <Input
+                      type="file"
+                      accept=".xlsx,.xls"
+                      disabled={uploadMutation.isPending}
+                      onChange={(e) => {
+                        const file = e.target.files?.[0];
+                        if (file) {
+                          uploadMutation.mutateAsync(file);
+                        }
+                      }}
+                    />
+                    {uploadMutation.isPending && (
+                      <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                        <Loader2 className="h-4 w-4 animate-spin" />
+                        Uploading and validating file...
+                      </div>
+                    )}
+                  </div>
+                </div>
               </DialogContent>
             </Dialog>
           )}
