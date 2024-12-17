@@ -40,6 +40,13 @@ export function ChartOfAccounts() {
 
   const { data: accounts = [] } = useQuery<Account[]>({
     queryKey: [isAdmin ? "/api/admin/master-accounts" : "/api/accounts"],
+    onError: (error) => {
+      toast({
+        variant: "destructive",
+        title: "Error fetching accounts",
+        description: error.message
+      });
+    }
   });
 
   const form = useForm<AccountFormData>({

@@ -131,8 +131,15 @@ app.post("/api/register", async (req, res) => {
       })
       .returning();
 
-    // Copy master accounts for the new user
-    await copyMasterAccountsToUser(newUser.id);
+    try {
+      // Copy master accounts for the new user
+      console.log('Copying master accounts for new user:', newUser.id);
+      await copyMasterAccountsToUser(newUser.id);
+      console.log('Successfully copied master accounts for user:', newUser.id);
+    } catch (error) {
+      console.error('Error copying master accounts:', error);
+      return res.status(500).json({ message: "Failed to set up user accounts" });
+    }
 
     // Auto-login after registration
     req.login(newUser, (err) => {
