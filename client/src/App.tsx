@@ -118,12 +118,12 @@ function App() {
       icon: <LayoutDashboard className="h-4 w-4" />
     },
     {
-      href: "/upload",
+      href: "/data-upload",
       label: "Data Upload",
       icon: <UploadIcon className="h-4 w-4" />
     },
     {
-      href: "/analysis",
+      href: "/data-analysis",
       label: "Data Analysis",
       icon: <BarChart3 className="h-4 w-4" />
     },
@@ -145,7 +145,7 @@ function App() {
       icon: <FileSpreadsheet className="h-4 w-4" />
     },
     {
-      href: "/settings",
+      href: "/company-settings",
       label: "Company Settings",
       icon: <Settings className="h-4 w-4" />
     }
@@ -153,7 +153,7 @@ function App() {
 
   const adminNavItems = [
     {
-      href: "/admin/dashboard",
+      href: "/admin",
       label: "Dashboard",
       icon: <LayoutDashboard className="h-4 w-4" />
     },
