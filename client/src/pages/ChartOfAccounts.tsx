@@ -16,7 +16,6 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { useForm } from "react-hook-form";
 import { Plus, Edit2, Trash2, Upload, Loader2 } from "lucide-react";
 import { ErrorAnimation } from "@/components/ui/error-animation";
-import { motion, AnimatePresence } from "framer-motion";
 import { useUser } from "@/hooks/use-user";
 import { useToast } from "@/hooks/use-toast";
 import type { MasterAccount, UserAccount } from "@db/schema";
@@ -125,7 +124,6 @@ export function ChartOfAccounts() {
       const data = await res.json();
       
       if (!res.ok) {
-        // Handle structured error responses
         if (data.code && data.message) {
           throw {
             code: data.code,
@@ -147,11 +145,9 @@ export function ChartOfAccounts() {
       });
     },
     onError: (error: any) => {
-      // Handle structured error responses
       if (error.code) {
         let description = error.message;
         
-        // Add details if available
         if (error.details) {
           if (error.details.row) {
             description += `\nRow: ${error.details.row}`;
@@ -241,22 +237,22 @@ export function ChartOfAccounts() {
                       }}
                     />
                     <div className="space-y-2">
-                        {uploadMutation.isPending && (
-                          <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                            <Loader2 className="h-4 w-4 animate-spin" />
-                            Uploading and validating file...
-                          </div>
-                        )}
-                        {uploadMutation.isError && (
-                          <ErrorAnimation
-                            error={{
-                              title: getFriendlyErrorTitle(uploadMutation.error?.code) || "Upload Error",
-                              description: uploadMutation.error?.message || "An error occurred while uploading",
-                              type: "error"
-                            }}
-                          />
-                        )}
-                      </div>
+                      {uploadMutation.isPending && (
+                        <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                          <Loader2 className="h-4 w-4 animate-spin" />
+                          Uploading and validating file...
+                        </div>
+                      )}
+                      {uploadMutation.isError && (
+                        <ErrorAnimation
+                          error={{
+                            title: getFriendlyErrorTitle((uploadMutation.error as any)?.code) || "Upload Error",
+                            description: (uploadMutation.error as any)?.message || "An error occurred while uploading",
+                            type: "error"
+                          }}
+                        />
+                      )}
+                    </div>
                   </div>
                 </div>
               </DialogContent>
