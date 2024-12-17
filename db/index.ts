@@ -1,10 +1,15 @@
-// ⚠️ DATABASE ACCESS COMPLETELY DISABLED ⚠️
-// This is a complete shutdown of database functionality to prevent any costs
-// All database operations will fail immediately with this error
+import { drizzle } from "drizzle-orm/neon-serverless";
+import ws from "ws";
+import * as schema from "@db/schema";
 
-console.error('❌ DATABASE ACCESS IS COMPLETELY DISABLED');
-console.error('This is an intentional shutdown to prevent any database costs');
-console.error('The application cannot perform any database operations');
-console.error('All database features are non-functional until explicitly re-enabled');
+if (!process.env.DATABASE_URL) {
+  throw new Error(
+    "DATABASE_URL must be set. Did you forget to provision a database?",
+  );
+}
 
-throw new Error('SYSTEM SHUTDOWN: Database access has been completely disabled to prevent costs. The system cannot proceed with any database operations.');
+export const db = drizzle({
+  connection: process.env.DATABASE_URL,
+  schema,
+  ws: ws,
+});
