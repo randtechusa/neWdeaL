@@ -25,7 +25,7 @@ declare global {
 
 export function setupAuth(app: Express) {
   const MemoryStore = createMemoryStore(session);
-  const sessionSettings: session.SessionOptions = {
+  const sessionSettings = {
     secret: process.env.REPL_ID || "analee-secret",
     resave: false,
     saveUninitialized: false,
@@ -40,7 +40,7 @@ export function setupAuth(app: Express) {
       checkPeriod: 86400000, // prune expired entries every 24h
       stale: false
     }),
-  };
+  } satisfies session.SessionOptions;
 
   // Create admin user if it doesn't exist
   createAdminUser().catch(console.error);
@@ -71,9 +71,11 @@ export function setupAuth(app: Express) {
           const normalizedEmail = email.toLowerCase().trim();
           
           // Find user with a direct query
-          const user = await db.query.users.findFirst({
-            where: eq(users.email, normalizedEmail),
-          });
+          const [user] = await db
+            .select()
+            .from(users)
+            .where(eq(users.email, normalizedEmail))
+            .limit(1);
 
           if (!user) {
             console.log('User not found:', normalizedEmail);
@@ -87,7 +89,10 @@ export function setupAuth(app: Express) {
           
           // Verify password with bcryptjs
           try {
+            console.log('Comparing passwords for user:', normalizedEmail);
             const isMatch = await bcryptjs.compare(password, user.password);
+            console.log('Password comparison result:', isMatch);
+            
             if (!isMatch) {
               console.log('Password mismatch for user:', normalizedEmail);
               return done(null, false, { message: "Invalid email or password." });
