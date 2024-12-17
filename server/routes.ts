@@ -362,6 +362,89 @@ export function registerRoutes(app: Express): Server {
       }
     }
   });
+  // Tutorial progress routes
+  app.get("/api/tutorial-progress", requireAuth, async (req, res) => {
+    try {
+      if (!req.user?.id) {
+        return res.status(401).json({ message: "Not authenticated" });
+      }
+
+      const progress = await db.query.userTutorialProgress.findFirst({
+        where: eq(userTutorialProgress.userId, req.user.id),
+      });
+
+      if (!progress) {
+        // Create initial progress record
+        const [newProgress] = await db.insert(userTutorialProgress)
+          .values({
+            userId: req.user.id,
+            completedSteps: [],
+            isCompleted: false,
+          })
+          .returning();
+        
+        return res.json(newProgress);
+      }
+
+      res.json(progress);
+    } catch (error) {
+      console.error('Error fetching tutorial progress:', error);
+      res.status(500).json({ message: "Failed to fetch tutorial progress" });
+    }
+  });
+
+  app.post("/api/tutorial-progress", requireAuth, async (req, res) => {
+    try {
+      if (!req.user?.id) {
+        return res.status(401).json({ message: "Not authenticated" });
+      }
+
+      const { step } = req.body;
+      if (!step) {
+        return res.status(400).json({ message: "Step is required" });
+      }
+
+      const progress = await db.query.userTutorialProgress.findFirst({
+        where: eq(userTutorialProgress.userId, req.user.id),
+      });
+
+      if (!progress) {
+        // Create new progress record
+        const [newProgress] = await db.insert(userTutorialProgress)
+          .values({
+            userId: req.user.id,
+            completedSteps: [step],
+            lastStep: step,
+            isCompleted: false,
+          })
+          .returning();
+        
+        return res.json(newProgress);
+      }
+
+      // Update existing progress
+      const completedSteps = progress.completedSteps || [];
+      if (!completedSteps.includes(step)) {
+        completedSteps.push(step);
+      }
+
+      const [updatedProgress] = await db
+        .update(userTutorialProgress)
+        .set({
+          completedSteps,
+          lastStep: step,
+          isCompleted: step === 'settings', // Mark as completed when reaching the last step
+          updatedAt: new Date(),
+        })
+        .where(eq(userTutorialProgress.userId, req.user.id))
+        .returning();
+
+      res.json(updatedProgress);
+    } catch (error) {
+      console.error('Error updating tutorial progress:', error);
+      res.status(500).json({ message: "Failed to update tutorial progress" });
+    }
+  });
 
   const httpServer = createServer(app);
   return httpServer;

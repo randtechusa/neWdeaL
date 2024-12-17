@@ -85,6 +85,17 @@ export const settings = pgTable("settings", {
   updatedAt: timestamp("updated_at").defaultNow(),
 });
 
+// Tutorial progress tracking
+export const userTutorialProgress = pgTable("user_tutorial_progress", {
+  id: serial("id").primaryKey(),
+  userId: integer("user_id").references(() => users.id).notNull(),
+  completedSteps: text("completed_steps").array(),
+  isCompleted: boolean("is_completed").default(false),
+  lastStep: text("last_step"),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
 // Relations
 export const masterAccountsRelations = relations(masterAccounts, ({ one, many }) => ({
   parent: one(masterAccounts, {
