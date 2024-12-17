@@ -23,6 +23,34 @@ declare global {
   }
 }
 
+// Rate limiting implementation
+const loginAttempts = new Map<string, { count: number; resetTime: number }>();
+
+function isRateLimited(email: string): boolean {
+  const MAX_ATTEMPTS = 5;
+  const WINDOW_MS = 15 * 60 * 1000; // 15 minutes
+  
+  const now = Date.now();
+  const userAttempts = loginAttempts.get(email);
+  
+  if (!userAttempts) {
+    loginAttempts.set(email, { count: 1, resetTime: now + WINDOW_MS });
+    return false;
+  }
+  
+  if (now > userAttempts.resetTime) {
+    loginAttempts.set(email, { count: 1, resetTime: now + WINDOW_MS });
+    return false;
+  }
+  
+  if (userAttempts.count >= MAX_ATTEMPTS) {
+    return true;
+  }
+  
+  userAttempts.count++;
+  return false;
+}
+
 export function setupAuth(app: Express) {
   const MemoryStore = createMemoryStore(session);
   const sessionSettings = {
@@ -66,6 +94,15 @@ export function setupAuth(app: Express) {
       async (email, password, done) => {
         try {
           console.log('Attempting login for email:', email);
+          
+          // Check rate limiting
+          if (isRateLimited(email)) {
+            console.log('Rate limit exceeded for:', email);
+            return done(null, false, {
+              message: "Too many login attempts. Please try again later.",
+              code: 'RATE_LIMIT_EXCEEDED'
+            });
+          }
           
           // Validate input format
           if (!email || !password) {

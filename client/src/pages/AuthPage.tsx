@@ -43,23 +43,62 @@ export default function AuthPage() {
       if (!result.ok) {
         let errorTitle = activeTab === "login" ? "Login Failed" : "Registration Failed";
         let errorDescription = result.message;
+        let action: (() => void) | undefined;
 
-        // Provide more user-friendly messages based on error codes
-        if (result.code === 'MISSING_CREDENTIALS') {
-          errorTitle = "Missing Information";
-        } else if (result.code === 'INVALID_EMAIL_FORMAT') {
-          errorTitle = "Invalid Email";
-        } else if (result.code === 'INVALID_PASSWORD') {
-          errorTitle = "Invalid Password";
-        } else if (result.code === 'ACCOUNT_DEACTIVATED') {
-          errorTitle = "Account Deactivated";
+        // Provide more user-friendly messages and recovery actions based on error codes
+        switch (result.code) {
+          case 'MISSING_CREDENTIALS':
+            errorTitle = "Missing Information";
+            errorDescription = "Please fill in all required fields to continue.";
+            break;
+          case 'INVALID_EMAIL_FORMAT':
+            errorTitle = "Invalid Email";
+            errorDescription = "Please enter a valid email address.";
+            break;
+          case 'INVALID_PASSWORD':
+            errorTitle = "Invalid Password";
+            errorDescription = "The password you entered is incorrect. Please try again.";
+            break;
+          case 'ACCOUNT_DEACTIVATED':
+            errorTitle = "Account Deactivated";
+            errorDescription = "Your account has been deactivated. Please contact support for assistance.";
+            action = () => window.location.href = '/contact-support';
+            break;
+          case 'RATE_LIMIT_EXCEEDED':
+            errorTitle = "Too Many Attempts";
+            errorDescription = "Please wait a few minutes before trying again.";
+            break;
+          case 'NETWORK_ERROR':
+            errorTitle = "Connection Error";
+            errorDescription = "Please check your internet connection and try again.";
+            action = () => window.location.reload();
+            break;
+          case 'SESSION_EXPIRED':
+            errorTitle = "Session Expired";
+            errorDescription = "Your session has expired. Please log in again.";
+            action = () => setActiveTab("login");
+            break;
         }
 
         toast({
           variant: "destructive",
           title: errorTitle,
-          description: errorDescription,
-          duration: 5000, // Show error for 5 seconds
+          description: (
+            <div className="flex flex-col gap-2">
+              <p>{errorDescription}</p>
+              {action && (
+                <Button 
+                  variant="outline" 
+                  size="sm" 
+                  onClick={action}
+                  className="mt-2"
+                >
+                  Take Action
+                </Button>
+              )}
+            </div>
+          ),
+          duration: 7000, // Show error for 7 seconds
         });
       } else {
         // Show success message
