@@ -97,6 +97,21 @@ const AdminChartOfAccounts = () => {
 
 
 function App() {
+  const { user, isLoading } = useUser();
+
+  if (isLoading) {
+    return (
+      <div className="flex items-center justify-center min-h-screen">
+        <Loader2 className="h-8 w-8 animate-spin text-border" />
+      </div>
+    );
+  }
+
+  if (!user) {
+    return <AuthPage />;
+  }
+
+  const isAdmin = user.role === 'admin';
   const userNavItems = [
     {
       href: "/",
@@ -165,20 +180,8 @@ function App() {
     }
   ];
 
-  const { user, isLoading } = useUser();
   const navItems = user?.role === 'admin' ? adminNavItems : userNavItems;
 
-  if (isLoading) {
-    return (
-      <div className="flex items-center justify-center min-h-screen">
-        <Loader2 className="h-8 w-8 animate-spin text-border" />
-      </div>
-    );
-  }
-
-  if (!user) {
-    return <AuthPage />;
-  }
 
   return (
     <div className="min-h-screen bg-background">
@@ -237,7 +240,7 @@ function App() {
           <Route path="/admin/dashboard" component={AdminDashboard} />
           <Route path="/admin/active-subscribers" component={ActiveSubscribers} />
           <Route path="/admin/deactivated-subscribers" component={DeactivatedSubscribers} />
-          <Route path="/admin/chart-of-accounts" component={ChartOfAccounts} />
+          <Route path="/admin/chart-of-accounts" component={AdminChartOfAccounts} />
           <Route path="/admin/settings" component={AdminSettings} />
           <Route>
             <div className="flex h-[calc(100vh-10rem)] items-center justify-center">
