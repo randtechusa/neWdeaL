@@ -5,7 +5,6 @@ import { relations } from "drizzle-orm";
 // Users and authentication
 export const users = pgTable("users", {
   id: serial("id").primaryKey(),
-  userId: text("user_id").notNull().unique(),
   email: text("email").notNull().unique(),
   password: text("password").notNull(),
   role: text("role").notNull().default("user"),
