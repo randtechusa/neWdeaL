@@ -15,6 +15,8 @@ import { Form, FormField, FormItem, FormLabel, FormControl } from "@/components/
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useForm } from "react-hook-form";
 import { Plus, Edit2, Trash2, Upload, Loader2 } from "lucide-react";
+import { ErrorAnimation } from "@/components/ui/error-animation";
+import { motion, AnimatePresence } from "framer-motion";
 import { useUser } from "@/hooks/use-user";
 import { useToast } from "@/hooks/use-toast";
 import type { MasterAccount, UserAccount } from "@db/schema";
@@ -238,12 +240,23 @@ export function ChartOfAccounts() {
                         }
                       }}
                     />
-                    {uploadMutation.isPending && (
-                      <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                        <Loader2 className="h-4 w-4 animate-spin" />
-                        Uploading and validating file...
+                    <div className="space-y-2">
+                        {uploadMutation.isPending && (
+                          <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                            <Loader2 className="h-4 w-4 animate-spin" />
+                            Uploading and validating file...
+                          </div>
+                        )}
+                        {uploadMutation.isError && (
+                          <ErrorAnimation
+                            error={{
+                              title: getFriendlyErrorTitle(uploadMutation.error?.code) || "Upload Error",
+                              description: uploadMutation.error?.message || "An error occurred while uploading",
+                              type: "error"
+                            }}
+                          />
+                        )}
                       </div>
-                    )}
                   </div>
                 </div>
               </DialogContent>
