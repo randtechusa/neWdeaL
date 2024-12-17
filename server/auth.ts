@@ -254,31 +254,36 @@ app.post("/api/register", async (req, res) => {
   }
 });
 
-app.post("/api/login", (req, res, next) => {
-    passport.authenticate("local", (err: any, user: Express.User, info: IVerifyOptions) => {
-      if (err) {
-        console.error('Login error:', err);
-        return res.status(500).json({ 
-          message: "An error occurred during login",
-          ok: false 
-        });
-      }
-
-      if (!user) {
-        return res.status(401).json({ 
-          message: info.message || "Invalid credentials",
-          ok: false
-        });
-      }
-
-      req.logIn(user, (err) => {
+app.post("/api/login", async (req, res, next) => {
+    try {
+      passport.authenticate("local", async (err: any, user: Express.User, info: IVerifyOptions) => {
         if (err) {
-          console.error('Login session error:', err);
+          console.error('Login error:', err);
           return res.status(500).json({ 
-            message: "Failed to create login session",
-            ok: false 
+            message: "An error occurred during login",
+            ok: false,
+            code: 'SYSTEM_ERROR'
           });
         }
+
+        if (!user) {
+          return res.status(401).json({ 
+            message: info.message || "Invalid credentials",
+            ok: false,
+            code: 'INVALID_CREDENTIALS'
+          });
+        }
+
+        await new Promise<void>((resolve, reject) => {
+          req.logIn(user, (err) => {
+            if (err) {
+              console.error('Login session error:', err);
+              reject(err);
+              return;
+            }
+            resolve();
+          });
+        });
 
         const sanitizedUser = {
           id: user.id,
@@ -292,8 +297,15 @@ app.post("/api/login", (req, res, next) => {
           user: sanitizedUser,
           ok: true
         });
+      })(req, res, next);
+    } catch (error) {
+      console.error('Login process error:', error);
+      return res.status(500).json({ 
+        message: "An unexpected error occurred",
+        ok: false,
+        code: 'SYSTEM_ERROR'
       });
-    })(req, res, next);
+    }
   });
 
   app.post("/api/logout", (req, res) => {
