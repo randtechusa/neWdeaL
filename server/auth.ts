@@ -30,15 +30,18 @@ export function setupAuth(app: Express) {
     resave: false,
     saveUninitialized: false,
     name: 'analee.sid',
+    rolling: true,
     cookie: {
       maxAge: 24 * 60 * 60 * 1000, // 24 hours
       httpOnly: true,
       sameSite: 'lax',
-      secure: process.env.NODE_ENV === 'production'
+      secure: process.env.NODE_ENV === 'production',
+      path: '/'
     },
     store: new MemoryStore({
       checkPeriod: 86400000, // prune expired entries every 24h
-      stale: false
+      stale: false,
+      ttl: 24 * 60 * 60 * 1000 // 24 hours
     }),
   } satisfies session.SessionOptions;
 
@@ -65,17 +68,16 @@ export function setupAuth(app: Express) {
           console.log('Attempting login for email:', email);
           
           if (!email || !password) {
+            console.log('Missing credentials');
             return done(null, false, { message: "Email and password are required." });
           }
 
           const normalizedEmail = email.toLowerCase().trim();
           
-          // Find user with a direct query
-          const [user] = await db
-            .select()
-            .from(users)
-            .where(eq(users.email, normalizedEmail))
-            .limit(1);
+          // Find user with a direct query including all fields
+          const user = await db.query.users.findFirst({
+            where: eq(users.email, normalizedEmail),
+          });
 
           if (!user) {
             console.log('User not found:', normalizedEmail);
@@ -86,25 +88,26 @@ export function setupAuth(app: Express) {
             console.log('User account deactivated:', normalizedEmail);
             return done(null, false, { message: "Account is deactivated." });
           }
-          
-          // Verify password with bcryptjs
+
+          // Enhanced password verification with detailed logging
+          let isMatch = false;
           try {
-            console.log('Comparing passwords for user:', normalizedEmail);
-            const isMatch = await bcryptjs.compare(password, user.password);
-            console.log('Password comparison result:', isMatch);
-            
-            if (!isMatch) {
-              console.log('Password mismatch for user:', normalizedEmail);
-              return done(null, false, { message: "Invalid email or password." });
-            }
+            console.log('Starting password comparison for user:', normalizedEmail);
+            isMatch = await bcryptjs.compare(password, user.password);
+            console.log('Password comparison completed. Result:', isMatch);
           } catch (bcryptError) {
-            console.error('Password verification error:', bcryptError);
+            console.error('Password verification failed:', bcryptError);
             return done(null, false, { message: "Authentication error occurred." });
+          }
+            
+          if (!isMatch) {
+            console.log('Password mismatch for user:', normalizedEmail);
+            return done(null, false, { message: "Invalid email or password." });
           }
 
           console.log(`Login successful for ${user.role} user:`, normalizedEmail);
           
-          // Return only necessary user data
+          // Return sanitized user data
           const sanitizedUser = {
             id: user.id,
             userId: user.userId,
