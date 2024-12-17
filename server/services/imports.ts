@@ -43,7 +43,10 @@ export function analyzeExcelSheet(filePath: string, sheetName?: string): SheetAn
     const workbook: WorkBook = readXLSX(filePath, {
       cellDates: true,
       cellNF: false,
-      cellText: false
+      cellText: false,
+      type: 'buffer',
+      codepage: 65001, // UTF-8
+      raw: false
     });
     
     const sheet: WorkSheet = sheetName 
@@ -104,9 +107,16 @@ export function analyzeExcelSheet(filePath: string, sheetName?: string): SheetAn
 
 export async function importChartOfAccounts(filePath: string): Promise<void> {
   try {
+    console.log('Starting Chart of Accounts import from:', filePath);
+    
     // First analyze the file structure
     const analysis = analyzeExcelSheet(filePath);
-    console.log('Analyzing Chart of Accounts structure:', analysis);
+    console.log('Chart of Accounts Analysis:', {
+      headers: analysis.headers,
+      sampleCount: analysis.sample.length,
+      firstRow: analysis.sample[0],
+      structure: analysis.structure
+    });
 
     const workbook = readXLSX(filePath);
     const sheet = workbook.Sheets[workbook.SheetNames[0]];
