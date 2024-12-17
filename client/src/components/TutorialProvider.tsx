@@ -140,25 +140,36 @@ export function TutorialProvider({ children }: TutorialProviderProps) {
   // Skip tutorial
   const skipTutorial = async () => {
     try {
-      await updateProgress.mutateAsync(currentStep!);
+      if (currentStep) {
+        await updateProgress.mutateAsync(currentStep);
+      }
       setIsActive(false);
       setCurrentStep(null);
       toast({
         title: 'Tutorial skipped',
         description: 'You can restart the tutorial anytime from settings.',
+        duration: 3000,
       });
     } catch (error) {
       console.error('Failed to skip tutorial:', error);
+      toast({
+        variant: "destructive",
+        title: 'Error',
+        description: 'Failed to skip tutorial. Please try again.',
+        duration: 3000,
+      });
     }
   };
 
   // Navigate to next step
   const nextStep = async () => {
+    if (!currentStep) return;
+    
     const steps = Object.values(tutorialSteps);
-    const currentIndex = steps.indexOf(currentStep!);
+    const currentIndex = steps.indexOf(currentStep);
     
     try {
-      await updateProgress.mutateAsync(currentStep!);
+      await updateProgress.mutateAsync(currentStep);
       
       if (currentIndex === steps.length - 1) {
         // Tutorial completed
@@ -167,6 +178,7 @@ export function TutorialProvider({ children }: TutorialProviderProps) {
         toast({
           title: 'Tutorial completed!',
           description: 'You can now start using Analee to its full potential.',
+          duration: 3000,
         });
       } else {
         // Move to next step
@@ -174,6 +186,12 @@ export function TutorialProvider({ children }: TutorialProviderProps) {
       }
     } catch (error) {
       console.error('Failed to update tutorial progress:', error);
+      toast({
+        variant: "destructive",
+        title: 'Error',
+        description: 'Failed to move to next step. Please try again.',
+        duration: 3000,
+      });
     }
   };
 
@@ -207,31 +225,46 @@ export function TutorialProvider({ children }: TutorialProviderProps) {
       {children}
       
       {/* Tutorial Dialog */}
-      <Dialog open={isActive} onOpenChange={(open) => !open && skipTutorial()}>
-        <DialogContent>
+      <Dialog 
+        open={isActive} 
+        onOpenChange={(open) => {
+          if (!open) {
+            skipTutorial();
+          }
+        }}
+      >
+        <DialogContent className="sm:max-w-[500px]">
           <DialogHeader>
-            <DialogTitle>
+            <DialogTitle className="text-2xl">
               {currentStep && stepContent[currentStep].title}
             </DialogTitle>
-            <DialogDescription>
+            <DialogDescription className="text-base">
               {currentStep && stepContent[currentStep].description}
             </DialogDescription>
           </DialogHeader>
           
-          <DialogFooter className="flex justify-between">
-            <div className="flex gap-2">
+          <DialogFooter className="flex flex-col sm:flex-row justify-between gap-4 mt-6">
+            <div className="flex gap-2 w-full sm:w-auto">
               <Button
                 variant="outline"
-                onClick={previousStep}
-                disabled={currentStep === tutorialSteps.WELCOME}
+                onClick={() => previousStep()}
+                disabled={!currentStep || currentStep === tutorialSteps.WELCOME}
+                className="flex-1 sm:flex-none"
               >
                 Previous
               </Button>
-              <Button onClick={nextStep}>
+              <Button 
+                onClick={() => nextStep()}
+                className="flex-1 sm:flex-none"
+              >
                 {currentStep === Object.values(tutorialSteps).slice(-1)[0] ? 'Finish' : 'Next'}
               </Button>
             </div>
-            <Button variant="ghost" onClick={skipTutorial}>
+            <Button 
+              variant="ghost" 
+              onClick={() => skipTutorial()}
+              className="w-full sm:w-auto"
+            >
               Skip Tutorial
             </Button>
           </DialogFooter>
