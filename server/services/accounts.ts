@@ -41,11 +41,10 @@ function buildHierarchy(accounts: (MasterAccount | UserAccount)[]): (MasterAccou
 
 // Master Account Operations
 export async function getMasterAccountHierarchy(): Promise<MasterAccount[]> {
-  const allAccounts = await db
-    .select()
-    .from(masterAccounts)
-    .where(eq(masterAccounts.active, true))
-    .orderBy(masterAccounts.code);
+  const allAccounts = await db.query.masterAccounts.findMany({
+    where: eq(masterAccounts.active, true),
+    orderBy: [masterAccounts.code],
+  });
 
   return buildHierarchy(allAccounts) as MasterAccount[];
 }
