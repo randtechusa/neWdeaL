@@ -1,11 +1,35 @@
 import express, { type Request, Response, NextFunction } from "express";
 import { registerRoutes } from "./routes";
 import { setupVite, serveStatic, log } from "./vite";
+import { config } from "./config";
+import helmet from "helmet";
 
 const app = express();
+const isProduction = process.env.NODE_ENV === "production";
+
+// Basic security middleware
 app.use(express.json());
 app.use(express.urlencoded({ extended: false }));
 
+// Production-specific security middleware
+if (isProduction) {
+  app.use(helmet());
+  app.use(helmet.contentSecurityPolicy({
+    directives: {
+      defaultSrc: ["'self'"],
+      scriptSrc: ["'self'", "'unsafe-inline'"],
+      styleSrc: ["'self'", "'unsafe-inline'"],
+      imgSrc: ["'self'", "data:", "https:"],
+    },
+  }));
+  app.use(helmet.hsts({
+    maxAge: 31536000,
+    includeSubDomains: true,
+    preload: true
+  }));
+}
+
+// Environment-based logging middleware
 app.use((req, res, next) => {
   const start = Date.now();
   const path = req.path;
@@ -21,7 +45,9 @@ app.use((req, res, next) => {
     const duration = Date.now() - start;
     if (path.startsWith("/api")) {
       let logLine = `${req.method} ${path} ${res.statusCode} in ${duration}ms`;
-      if (capturedJsonResponse) {
+      
+      // Only include response data in development environment
+      if (!isProduction && capturedJsonResponse) {
         logLine += ` :: ${JSON.stringify(capturedJsonResponse)}`;
       }
 

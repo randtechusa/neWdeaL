@@ -6,6 +6,7 @@ import createMemoryStore from "memorystore";
 import bcryptjs from "bcryptjs";
 import { users, type User } from "@db/schema";
 import { db } from "@db";
+import { config } from "./config";
 import { eq } from "drizzle-orm";
 import { copyMasterAccountsToUser } from './services/accounts';
 
@@ -53,25 +54,21 @@ function isRateLimited(email: string): boolean {
 
 export function setupAuth(app: Express) {
   const MemoryStore = createMemoryStore(session);
+  const { session: sessionConfig } = config;
   const sessionSettings = {
-    secret: process.env.REPL_ID || "analee-secret",
-    resave: false,
-    saveUninitialized: false,
-    name: 'analee.sid',
-    rolling: true,
-    cookie: {
-      maxAge: 24 * 60 * 60 * 1000, // 24 hours
-      httpOnly: true,
-      sameSite: 'lax',
-      secure: false, // Set to false to work in development
-      path: '/'
-    },
+    ...sessionConfig,
     store: new MemoryStore({
       checkPeriod: 86400000, // prune expired entries every 24h
       stale: false,
-      ttl: 24 * 60 * 60 * 1000 // 24 hours
+      ttl: sessionConfig.cookie?.maxAge || 24 * 60 * 60 * 1000
     }),
+    rolling: true
   } satisfies session.SessionOptions;
+
+  // Additional security in production
+  if (process.env.NODE_ENV === "production") {
+    app.set("trust proxy", 1);
+  }
 
   // Create admin user if it doesn't exist
   createAdminUser().catch(console.error);
